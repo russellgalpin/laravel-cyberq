@@ -43,7 +43,7 @@ class CookChart extends BaseChart
      */
     public function handler(Request $request): Chartisan
     {
-        $readings = Reading::all();
+        $readings = Reading::query()->where('probe_id', 1)->get();
 
         return Chartisan::build()
             ->labels($readings->pluck('created_at')->map(function ($val) {
