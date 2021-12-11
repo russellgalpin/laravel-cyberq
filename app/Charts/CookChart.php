@@ -51,7 +51,7 @@ class CookChart extends BaseChart
                     return $reading->probe_id == 1;
                 })->map(function ($val) {
                     return $val->created_at->format('H:i:s');
-                })->toArray()
+                })->values()->toArray()
             );
 
         $probes = [];
