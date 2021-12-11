@@ -61,7 +61,7 @@ class CookChart extends BaseChart
         });
 
         foreach ($probes as $key => $readings) {
-            $chart->dataset($key, $probes);
+            $chart->dataset($key, $readings);
         }
 
         return $chart;
