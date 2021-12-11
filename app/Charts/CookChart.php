@@ -43,12 +43,27 @@ class CookChart extends BaseChart
      */
     public function handler(Request $request): Chartisan
     {
-        $readings = Reading::query()->where('probe_id', 1)->get();
+        $readings = Reading::query()->where('cook_id', 1)->get();
 
-        return Chartisan::build()
-            ->labels($readings->pluck('created_at')->map(function ($val) {
-                return $val->format('H:i:s');
-            })->toArray())
-            ->dataset('probe1', $readings->pluck('temperature')->toArray());
+        $chart = Chartisan::build()
+            ->labels(
+                $readings->filter(function ($reading) {
+                    return $reading->probe_id == 1;
+                })->map(function ($val) {
+                    return $val->created_at->format('H:i:s');
+                })->toArray()
+            );
+
+        $probes = [];
+
+        $readings->each(function($reading) use (&$probes) {
+            $probes[$reading->probe->name][] = $reading->temperature;
+        });
+
+        foreach ($probes as $key => $readings) {
+            $chart->dataset($key, $probes);
+        }
+
+        return $chart;
     }
 }

@@ -14,4 +14,9 @@ class Reading extends Model
         'probe_id',
         'temperature',
     ];
+
+    public function probe()
+    {
+        return $this->belongsTo(Probe::class);
+    }
 }
