@@ -3,6 +3,7 @@
 use App\Models\Reading;
 use Chartisan\PHP\Chartisan;
 use Illuminate\Support\Facades\Route;
+use App\Models\Cook;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,8 +16,8 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/test', function() {
-    $readings = Reading::all();
+Route::get('/chart/{cook}', function(Cook $cook) {
+    $readings = $cook->readings;
 
     print Chartisan::build()
         ->labels($readings->pluck('created_at')->map(function ($val) {
@@ -27,6 +28,11 @@ Route::get('/test', function() {
 
 });
 
+Route::get('/cook/{cook}', function (Cook $cook) {
+    return view('cook')->with('cook', $cook);
+});
+
 Route::get('/', function () {
-    return view('welcome');
+    $cook = Cook::query()->orderBy('started_at', 'desc')->first(); 
+    return view('cook')->with('cook', $cook);
 });

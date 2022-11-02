@@ -19,4 +19,9 @@ class Cook extends Model
     {
         return $this->belongsTo(Guru::class);
     }
+
+    public function readings()
+    {
+        return $this->hasMany(Reading::class);
+    }
 }

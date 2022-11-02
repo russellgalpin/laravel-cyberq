@@ -43,7 +43,7 @@ class CookChart extends BaseChart
      */
     public function handler(Request $request): Chartisan
     {
-        $readings = Reading::query()->where('cook_id', 1)->get();
+        $readings = Reading::query()->where('cook_id', $request->get('cook_id'))->get();
 
         $chart = Chartisan::build()
             ->labels(
@@ -57,7 +57,7 @@ class CookChart extends BaseChart
         $probes = [];
 
         $readings->each(function($reading) use (&$probes) {
-            $probes[$reading->probe->name][] = $reading->temperature;
+            $probes[$reading->probe->name][] = $reading->temperature / 10;
         });
 
         foreach ($probes as $key => $readings) {
