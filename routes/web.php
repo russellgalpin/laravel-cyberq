@@ -15,24 +15,21 @@ use App\Models\Cook;
 | contains the "web" middleware group. Now create something great!
 |
 */
+Route::get('/cook/{cook}', function (Cook $cook) {
 
-Route::get('/chart/{cook}', function(Cook $cook) {
     $readings = $cook->readings;
 
-    print Chartisan::build()
+    $chart = (new \App\Charts\CookChart)
         ->labels($readings->pluck('created_at')->map(function ($val) {
             return $val->toDateString();
-        })->toArray())
-        ->dataset('probe1', $readings->pluck('temperature')->toArray());
+        })->toArray());
 
+    $chart->dataset('probe1', 'line', $readings->pluck('temperature')->toArray());
 
-});
-
-Route::get('/cook/{cook}', function (Cook $cook) {
-    return view('cook')->with('cook', $cook);
+    return view('cook')->with('cook', $cook)->with('chart', $chart);
 });
 
 Route::get('/', function () {
-    $cook = Cook::query()->orderBy('started_at', 'desc')->first(); 
+    $cook = Cook::query()->orderBy('started_at', 'desc')->first();
     return view('cook')->with('cook', $cook);
 });

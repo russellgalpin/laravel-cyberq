@@ -1,25 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chartisan example</title>
+    <meta charset="utf-8">
+    <title>Chart with VueJS</title>
+
 </head>
 <body>
-<!-- Chart's container -->
-<div id="chart" style="height: 300px;"></div>
-<!-- Charting library -->
-<script src="https://unpkg.com/echarts/dist/echarts.min.js"></script>
-<!-- Chartisan -->
-<script src="https://unpkg.com/@chartisan/echarts/dist/chartisan_echarts.js"></script>
-<!-- Your application script -->
+<div id="app">
+    {!! $chart->container() !!}
+</div>
+<script src="https://unpkg.com/vue"></script>
 <script>
-    const chart = new Chartisan({
-        el: '#chart',
-        url: "@chart('cook-chart')?cook_id={{ $cook->id }}",
-        hooks: new ChartisanHooks()
-            .datasets(['line'])
+    var app = new Vue({
+        el: '#app',
     });
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.1/Chart.min.js" charset="utf-8"></script>
+{!! $chart->script() !!}
 </body>
 </html>

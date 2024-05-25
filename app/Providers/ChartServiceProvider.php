@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Charts\CookChart;
+use App\Charts\CookChartOld;
 //use ConsoleTVs\Charts\Registrar as Charts;
 use Illuminate\Support\ServiceProvider;
 
