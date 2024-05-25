@@ -29,19 +29,19 @@ Route::get('/cook/{cook}', function (Cook $cook) {
             return $val->toDateTimeString();
         })->toArray());
 
-    $chart->dataset('pit', 'line', $pit->pluck('temperature')->map(fn($value) => $value / 100)->toArray())->options([
+    $chart->dataset('pit', 'line', $pit->pluck('temperature')->map(fn($value) => $value / 10)->toArray())->options([
         'backgroundColor' => '#891C26',
         'color' => '#891C26',
         'fill' => false,
         'lineTension' => '1'
     ]);
-    $chart->dataset('probe1', 'line', $probe1->pluck('temperature')->map(fn($value) => $value / 100)->toArray())->options([
+    $chart->dataset('probe1', 'line', $probe1->pluck('temperature')->map(fn($value) => $value / 10)->toArray())->options([
         'backgroundColor' => '#024FA6',
         'color' => '#024FA6',
         'fill' => false,
         'lineTension' => '1'
     ]);
-    $chart->dataset('probe2', 'line', $probe2->pluck('temperature')->map(fn($value) => $value / 100)->toArray())->options([
+    $chart->dataset('probe2', 'line', $probe2->pluck('temperature')->map(fn($value) => $value / 10)->toArray())->options([
         'backgroundColor' => '#36DB53',
         'color' => '#36DB53',
         'fill' => false,
