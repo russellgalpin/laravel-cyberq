@@ -24,8 +24,8 @@ class CyberQ
     public function getTemperatures()
     {
         if (! $this->temperatures) {
-            $response = Http::withBasicAuth($this->guru->username, $this->guru->password)
-                ->get(sprintf('http://%s/status.xml', $this->guru->ip));
+		$response = Http::withBasicAuth($this->guru->username, $this->guru->password)
+			->get(sprintf('http://%s/status.xml', $this->guru->ip));
             $this->temperatures = json_decode(json_encode(simplexml_load_string($response->body())), true);
         }
 

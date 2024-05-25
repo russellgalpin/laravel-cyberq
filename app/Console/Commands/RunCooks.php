@@ -40,7 +40,7 @@ class RunCooks extends Command
             })
             ->with(['guru', 'guru.probes'])
             ->get()
-            ->each(function (Cook $cook) {
+	    ->each(function (Cook $cook) {
                 $cyberQ = app(CyberQ::class, ['guru' => $cook->guru]);
                 $cook->guru->probes->each(function (Probe $probe) use ($cyberQ, $cook) {
                     Reading::create([
