@@ -17,14 +17,36 @@ use App\Models\Cook;
 */
 Route::get('/cook/{cook}', function (Cook $cook) {
 
-    $readings = $cook->readings;
+    $pit = $cook->readings()
+        ->whereHas('probe', fn($query) => $query->where('identifier', 'COOK_TEMP'))->get();
+    $probe1 = $cook->readings()
+        ->whereHas('probe', fn($query) => $query->where('identifier', 'FOOD1_TEMP'))->get();
+    $probe2 = $cook->readings()
+        ->whereHas('probe', fn($query) => $query->where('identifier', 'FOOD2_TEMP'))->get();
 
     $chart = (new \App\Charts\CookChart)
-        ->labels($readings->pluck('created_at')->map(function ($val) {
-            return $val->toDateString();
+        ->labels($pit->pluck('created_at')->map(function ($val) {
+            return $val->toDateTimeString();
         })->toArray());
 
-    $chart->dataset('probe1', 'line', $readings->pluck('temperature')->toArray());
+    $chart->dataset('pit', 'line', $pit->pluck('temperature')->toArray())->options([
+        'backgroundColor' => '#891C26',
+        'color' => '#891C26',
+        'fill' => false,
+        'lineTension' => '1'
+    ]);
+    $chart->dataset('probe1', 'line', $probe1->pluck('temperature')->toArray())->options([
+        'backgroundColor' => '#024FA6',
+        'color' => '#024FA6',
+        'fill' => false,
+        'lineTension' => '1'
+    ]);
+    $chart->dataset('probe2', 'line', $probe2->pluck('temperature')->toArray())->options([
+        'backgroundColor' => '#36DB53',
+        'color' => '#36DB53',
+        'fill' => false,
+        'lineTension' => '1'
+    ]);
 
     return view('cook')->with('cook', $cook)->with('chart', $chart);
 });
