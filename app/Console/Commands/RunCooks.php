@@ -38,18 +38,20 @@ class RunCooks extends Command
                 $query->where('ended_at', '>=', Carbon::now())
                     ->orWhereNull('ended_at');
             })
-            ->with(['guru', 'guru.probes'])
-            ->get()
-	    ->each(function (Cook $cook) {
-                $cyberQ = app(CyberQ::class, ['guru' => $cook->guru]);
-                $cook->guru->probes->each(function (Probe $probe) use ($cyberQ, $cook) {
+	    ->with(['guru', 'guru.probes'])
+	    ->get()
+            ->each(function (Cook $cook) {
+		$cyberQ = app(CyberQ::class, ['guru' => $cook->guru]);
+		$cook->guru->probes->each(function (Probe $probe) use ($cyberQ, $cook) {
+		if (is_numeric($temp = $cyberQ->getProbeTemperature($probe))) {
                     Reading::create([
                         'cook_id' => $cook->id,
                         'probe_id' => $probe->id,
-                        'temperature' => $cyberQ->getProbeTemperature($probe)
-                    ]);
-                });
+                        'temperature' => $temp
+		    ]);
+		}
             });
+        });
 
         return Command::SUCCESS;
     }
