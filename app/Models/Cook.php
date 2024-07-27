@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -9,11 +10,7 @@ class Cook extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'guru_id',
-        'name',
-        'started_at'
-    ];
+    protected $guarded = false;
 
     public function guru()
     {
@@ -23,5 +20,12 @@ class Cook extends Model
     public function readings()
     {
         return $this->hasMany(Reading::class);
+    }
+
+    public function inProgress(): Attribute
+    {
+        return new Attribute(
+            get: fn ($value) => !$this->ended_at
+        );
     }
 }
