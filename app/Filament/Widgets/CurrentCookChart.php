@@ -72,7 +72,7 @@ class CurrentCookChart extends ChartWidget
 
                 $readings = $readings->when(
                     $readings->count() > 200,
-                    fn ($readings) => $readings->nth(1)
+                    fn ($readings) => $readings->nth(2)
                 );
 
                 return $readings->pluck('created_at')->map(function (Carbon $val) {
