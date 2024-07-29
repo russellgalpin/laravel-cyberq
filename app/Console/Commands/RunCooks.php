@@ -41,16 +41,17 @@ class RunCooks extends Command
 	    ->with(['guru', 'guru.probes'])
 	    ->get()
             ->each(function (Cook $cook) {
-		$cyberQ = app(CyberQ::class, ['guru' => $cook->guru]);
-		$cook->guru->probes->each(function (Probe $probe) use ($cyberQ, $cook) {
-		if (is_numeric($temp = $cyberQ->getProbeTemperature($probe))) {
-                    Reading::create([
-                        'cook_id' => $cook->id,
-                        'probe_id' => $probe->id,
-                        'temperature' => $temp
-		    ]);
-		}
-            });
+                $cyberQ = app(CyberQ::class, ['guru' => $cook->guru]);
+                $cook->guru->probes->each(function (Probe $probe) use ($cyberQ, $cook) {
+                    if (is_numeric($temp = $cyberQ->getProbeTemperature($probe))) {
+                        Reading::create([
+                            'cook_id' => $cook->id,
+                            'probe_id' => $probe->id,
+                            'temperature' => $temp,
+                            'set_point' => $cyberQ->getProbeSetPoint($probe),
+                        ]);
+                    }
+                });
         });
 
         return Command::SUCCESS;

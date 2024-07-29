@@ -12,28 +12,38 @@ class StatsOverview extends BaseWidget
     {
         $cook = Cook::whereNull('ended_at')->first();
 
+        $stats = [];
+
         $pitTemp = $cook->readings()
             ->orderByDesc('created_at')
             ->whereHas('probe', fn($query) => $query->where('identifier', 'COOK_TEMP'))
-            ->first()
-            ?->temperature / 10;
+            ->first();
+
+        if ($pitTemp) {
+            $stats[] =  Stat::make('Pit Temp', $pitTemp->temperatureInFahrenheit . '°F')
+                ->description('Set point: ' . $pitTemp->setPointInFahrenheit . '°F');
+        }
 
         $cook1 = $cook->readings()
             ->orderByDesc('created_at')
             ->whereHas('probe', fn($query) => $query->where('identifier', 'FOOD1_TEMP'))
-            ->first()
-            ?->temperature / 10;
+            ->first();
+
+        if ($cook1) {
+            $stats[] =  Stat::make('Food 1 Temp', $cook1->temperatureInFahrenheit . '°F')
+                ->description('Set point: ' . $cook1->setPointInFahrenheit . '°F');
+        }
 
         $cook2 = $cook->readings()
             ->orderByDesc('created_at')
             ->whereHas('probe', fn($query) => $query->where('identifier', 'FOOD2_TEMP'))
-            ->first()
-            ?->temperature / 10;
+            ->first();
 
-        return [
-            Stat::make('Pit Temp', $pitTemp . '°F'),
-            Stat::make('Food 1 Temp', $cook1. '°F'),
-            Stat::make('Food 2 Temp', $cook2. '°F'),
-        ];
+        if ($cook2) {
+            $stats[] =  Stat::make('Food 2 Temp', $cook2->temperatureInFahrenheit . '°F')
+                ->description('Set point: ' . $cook2->setPointInFahrenheit . '°F');
+        }
+
+        return $stats;
     }
 }

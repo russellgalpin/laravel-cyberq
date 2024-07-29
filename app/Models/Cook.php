@@ -25,7 +25,7 @@ class Cook extends Model
     public function inProgress(): Attribute
     {
         return new Attribute(
-            get: fn ($value) => !$this->ended_at
+            get: fn () => !$this->ended_at
         );
     }
 }
