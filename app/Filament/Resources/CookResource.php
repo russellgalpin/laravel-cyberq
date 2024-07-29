@@ -5,17 +5,20 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\CookResource\Pages;
 use App\Models\Cook;
 use App\Models\Guru;
+use App\Services\Guru\CyberQ;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Forms\Components\Actions\Action;
 
 class CookResource extends Resource
 {
@@ -39,7 +42,21 @@ class CookResource extends Resource
                         Textarea::make('description')->columnSpan(2),
                         Select::make('guru_id')
                             ->relationship('guru', titleAttribute: 'name')
-                            ->default(Guru::first()->id)
+                            ->default(Guru::first()->id),
+                        TextInput::make('pit_temp')
+                            ->dehydrated(false)
+                            ->label(fn(Cook $cook) => 'Pit Temp (Current Temp: ' . app(CyberQ::class, ['guru' => $cook->guru])->getPitTemp() . ')')
+                            ->afterStateHydrated(function (TextInput $component, Cook $cook) {
+                                $component->state(app(CyberQ::class, ['guru' => $cook->guru])->getSetPoint());
+                            })
+                            ->suffixAction(
+                                Action::make('setPitTemp')
+                                    ->icon('heroicon-m-check-circle')
+                                    ->requiresConfirmation()
+                                    ->action(function (Set $set, Cook $cook, $state) {
+                                        app(CyberQ::class, ['guru' => $cook->guru])->setSetPoint($state);
+                                    }),
+                            )
                     ])
                 ]
             );

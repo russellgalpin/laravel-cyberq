@@ -28,4 +28,11 @@ class Cook extends Model
             get: fn () => !$this->ended_at
         );
     }
+
+    public function pitTemp(): Attribute
+    {
+        return new Attribute(
+            get: fn() => 100
+        );
+    }
 }

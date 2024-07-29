@@ -22,6 +22,24 @@ class CyberQ
         return $this->getTemperatures()[$probe->identifier];
     }
 
+    public function getPitTemp()
+    {
+        return $this->getTemperatures()['COOK_TEMP'] / 10;
+    }
+
+    public function getSetPoint()
+    {
+        return $this->getSetPoints()['COOK_SET'] / 10;
+    }
+
+    public function setSetPoint($setPoint)
+    {
+        $this->post('', [
+           'COOK_SET' => $setPoint,
+           '_COOK_SET' => $setPoint
+        ]);
+    }
+
     public function getProbeSetPoint(Probe $probe)
     {
         return isset($this->getSetPoints()[str_replace('TEMP', 'SET', $probe->identifier)]) ?
@@ -62,8 +80,11 @@ class CyberQ
             ->body();
     }
 
-    protected function post()
+    protected function post($url, $values)
     {
-
+        return Http::withBasicAuth($this->guru->username, $this->guru->password)
+            ->asForm()
+            ->post(sprintf('http://%s/' . $url, $this->guru->ip), $values)
+            ->body();
     }
 }

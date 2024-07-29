@@ -20,7 +20,7 @@ class StatsOverview extends BaseWidget
             ->first();
 
         if ($pitTemp) {
-            $stats[] =  Stat::make('Pit Temp', $pitTemp->temperatureInFahrenheit . '°F')
+            $stats[] = Stat::make('Pit Temp', $pitTemp->temperatureInFahrenheit . '°F')
                 ->description('Set point: ' . $pitTemp->setPointInFahrenheit . '°F');
         }
 
@@ -30,7 +30,7 @@ class StatsOverview extends BaseWidget
             ->first();
 
         if ($cook1) {
-            $stats[] =  Stat::make('Food 1 Temp', $cook1->temperatureInFahrenheit . '°F')
+            $stats[] = Stat::make('Food 1 Temp', $cook1->temperatureInFahrenheit . '°F')
                 ->description('Set point: ' . $cook1->setPointInFahrenheit . '°F');
         }
 
@@ -40,7 +40,7 @@ class StatsOverview extends BaseWidget
             ->first();
 
         if ($cook2) {
-            $stats[] =  Stat::make('Food 2 Temp', $cook2->temperatureInFahrenheit . '°F')
+            $stats[] = Stat::make('Food 2 Temp', $cook2->temperatureInFahrenheit . '°F')
                 ->description('Set point: ' . $cook2->setPointInFahrenheit . '°F');
         }
 
