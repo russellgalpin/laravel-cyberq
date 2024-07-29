@@ -4,8 +4,10 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\CookResource\Pages;
 use App\Models\Cook;
+use App\Models\Guru;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
@@ -35,6 +37,9 @@ class CookResource extends Resource
                         TextInput::make('name'),
                         DateTimePicker::make('started_at')->default(now()),
                         Textarea::make('description')->columnSpan(2),
+                        Select::make('guru_id')
+                            ->relationship('guru', titleAttribute: 'name')
+                            ->default(Guru::first()->id)
                     ])
                 ]
             );

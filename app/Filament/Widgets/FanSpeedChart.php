@@ -36,7 +36,7 @@ class FanSpeedChart extends ApexChartWidget
                 'type' => 'radialBar',
                 'height' => 300,
             ],
-            'series' => [Cook::query()->whereNull('ended_at')->first()->readings()->whereHas('probe', fn($query) => $query->where('identifier', 'OUTPUT_PERCENT'))->orderByDesc('created_at')->first()->temperature],
+            'series' => [Cook::query()->whereNull('ended_at')->first()->readings()->whereHas('probe', fn($query) => $query->where('identifier', 'OUTPUT_PERCENT'))->orderByDesc('created_at')->first()?->temperature],
             'plotOptions' => [
                 'radialBar' => [
                     'hollow' => [
