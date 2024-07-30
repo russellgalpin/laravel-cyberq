@@ -45,9 +45,12 @@ class CookResource extends Resource
                             ->default(Guru::first()->id),
                         TextInput::make('pit_temp')
                             ->dehydrated(false)
-                            ->label(fn(Cook $cook) => 'Pit Temp (Current Temp: ' . app(CyberQ::class, ['guru' => $cook->guru])->getPitTemp() . ')')
-                            ->afterStateHydrated(function (TextInput $component, Cook $cook) {
-                                $component->state(app(CyberQ::class, ['guru' => $cook->guru])->getSetPoint());
+                            ->visibleOn('edit')
+                            ->label($form->getOperation() === 'edit' ? fn(Cook $cook) => 'Pit Temp (Current Temp: ' . app(CyberQ::class, ['guru' => $cook->guru])->getPitTemp() . ')' : '')
+                            ->afterStateHydrated(function (TextInput $component, Cook $cook) use ($form) {
+                                if ($form->getOperation() === 'edit') {
+                                    $component->state(app(CyberQ::class, ['guru' => $cook->guru])->getSetPoint());
+                                }
                             })
                             ->suffixAction(
                                 Action::make('setPitTemp')

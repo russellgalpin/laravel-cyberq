@@ -24,12 +24,12 @@ class CyberQ
 
     public function getPitTemp()
     {
-        return $this->getTemperatures()['COOK_TEMP'] / 10;
+        return isset($this->getTemperatures()['COOK_TEMP']) ? $this->getTemperatures()['COOK_TEMP'] / 10 : 0;
     }
 
     public function getSetPoint()
     {
-        return $this->getSetPoints()['COOK_SET'] / 10;
+        return isset($this->getSetPoints()['COOK_SET']) ? $this->getSetPoints()['COOK_SET'] / 10 : 0;
     }
 
     public function setSetPoint($setPoint)
@@ -75,16 +75,24 @@ class CyberQ
 
     protected function get($url): string
     {
-        return Http::withBasicAuth($this->guru->username, $this->guru->password)
-            ->get(sprintf('http://%s/' . $url, $this->guru->ip))
-            ->body();
+        try {
+            return Http::withBasicAuth($this->guru->username, $this->guru->password)
+                ->get(sprintf('http://%s/' . $url, $this->guru->ip))
+                ->body();
+        } catch (\Exception $e) {
+            return '';
+        }
     }
 
     protected function post($url, $values)
     {
-        return Http::withBasicAuth($this->guru->username, $this->guru->password)
-            ->asForm()
-            ->post(sprintf('http://%s/' . $url, $this->guru->ip), $values)
-            ->body();
+        try {
+            return Http::withBasicAuth($this->guru->username, $this->guru->password)
+                ->asForm()
+                ->post(sprintf('http://%s/' . $url, $this->guru->ip), $values)
+                ->body();
+        } catch(\Exception $e) {
+            return '';
+        }
     }
 }

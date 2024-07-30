@@ -13,7 +13,7 @@ class CurrentCookChart extends ChartWidget
 
     protected int | string | array $columnSpan = 8;
 
-    protected Cook $cook;
+    protected ?Cook $cook;
 
     public function __construct()
     {
@@ -22,11 +22,15 @@ class CurrentCookChart extends ChartWidget
 
     public function getHeading(): string|Htmlable|null
     {
-        return 'Current cook: ' .  $this->cook->name;
+        return 'Current cook: ' .  $this->cook?->name;
     }
 
     protected function getData(): array
     {
+        if (! $this->cook) {
+            return [];
+        }
+
         $datasets = collect();
 
         $labels = collect([
