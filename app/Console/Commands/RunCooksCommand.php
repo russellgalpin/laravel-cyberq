@@ -7,6 +7,7 @@ use App\Models\Probe;
 use App\Models\Reading;
 use App\Services\Guru\CyberQUnreachable;
 use App\Services\Guru\DeviceStatus;
+use App\Support\LiveActivities\LiveActivityBroadcaster;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -16,6 +17,11 @@ use Illuminate\Support\Collection;
 #[Description('Record a reading from the CyberQ for every cook in progress')]
 class RunCooksCommand extends Command
 {
+    public function __construct(private readonly LiveActivityBroadcaster $liveActivities)
+    {
+        parent::__construct();
+    }
+
     public function handle(): int
     {
         $activeCooks = Cook::query()->active()->with('guru.probes')->get();
@@ -54,6 +60,8 @@ class RunCooksCommand extends Command
                 ->count();
 
             $this->comment("Recorded {$recorded} readings for cook `{$cook->name}`.");
+
+            $this->liveActivities->update($cook);
         });
     }
 

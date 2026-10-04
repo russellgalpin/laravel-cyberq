@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EndedCooksController;
 use App\Http\Controllers\Api\GurusController;
 use App\Http\Controllers\Api\InstanceController;
+use App\Http\Controllers\Api\LiveActivityTokensController;
 use App\Http\Controllers\Api\TokensController;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +28,9 @@ Route::middleware('auth:sanctum')->name('api.')->group(function () {
     Route::post('/cooks/{cook}/end', [EndedCooksController::class, 'store'])->name('cooks.end');
     Route::get('/cooks/{cook}/timeline', [CookTimelinesController::class, 'show'])->name('cooks.timeline');
     Route::get('/cook-comparisons', [CookComparisonsController::class, 'show'])->name('cookComparisons.show');
+
+    Route::put('/live-activity-tokens', [LiveActivityTokensController::class, 'store'])->name('liveActivityTokens.store');
+    Route::delete('/live-activity-tokens/{token}', [LiveActivityTokensController::class, 'destroy'])->name('liveActivityTokens.destroy');
 
     Route::get('/controller-settings', [ControllerSettingsController::class, 'show'])->name('controllerSettings.show');
     Route::patch('/controller-settings', [ControllerSettingsController::class, 'update'])->name('controllerSettings.update');

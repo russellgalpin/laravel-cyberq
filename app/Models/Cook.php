@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\LiveActivities\LiveActivityBroadcaster;
 use Carbon\CarbonInterface;
 use Carbon\CarbonInterval;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -38,6 +39,18 @@ class Cook extends Model
     protected static function booted(): void
     {
         static::deleting(fn (Cook $cook) => $cook->readings()->delete());
+
+        static::created(function (Cook $cook) {
+            if ($cook->in_progress) {
+                app(LiveActivityBroadcaster::class)->start($cook);
+            }
+        });
+
+        static::updated(function (Cook $cook) {
+            if ($cook->wasChanged('ended_at') && ! $cook->in_progress) {
+                app(LiveActivityBroadcaster::class)->end($cook);
+            }
+        });
     }
 
     public function guru(): BelongsTo

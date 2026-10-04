@@ -29,3 +29,22 @@ function recordReadings(Cook $cook, string $identifier, array $readings): void
         ]);
     }
 }
+
+/**
+ * Points the APNs client at a freshly generated P-256 key, as Apple's .p8 keys are.
+ */
+function fakeApnsKey(): void
+{
+    $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
+    openssl_pkey_export($key, $pem);
+
+    $path = tempnam(sys_get_temp_dir(), 'apns');
+    file_put_contents($path, $pem);
+
+    config([
+        'services.apns.key_id' => 'ABC123DEFG',
+        'services.apns.team_id' => 'V2H9538867',
+        'services.apns.private_key_path' => $path,
+        'services.apns.bundle_id' => 'net.lrhosting.cyberq',
+    ]);
+}

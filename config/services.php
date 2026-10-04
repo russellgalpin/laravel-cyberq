@@ -40,4 +40,12 @@ return [
         'abandoned_cook_hours' => env('CYBERQ_ABANDONED_COOK_HOURS', 12),
     ],
 
+    // Apple Push Notification service, for the iPhone app's Live Activities.
+    'apns' => [
+        'key_id' => env('APNS_KEY_ID'),
+        'team_id' => env('APNS_TEAM_ID'),
+        'private_key_path' => env('APNS_PRIVATE_KEY_PATH'),
+        'bundle_id' => env('APNS_BUNDLE_ID', 'net.lrhosting.cyberq'),
+    ],
+
 ];
