@@ -48,7 +48,7 @@ class CurrentCookStats extends StatsOverviewWidget
     {
         $lastReadingAt = $cook->lastReadingAt();
 
-        $stat = Stat::make($cook->name, $cook->duration()?->forHumans(['short' => true, 'parts' => 2]) ?? '-')
+        $stat = Stat::make($cook->name, $cook->durationForHumans() ?? '-')
             ->icon('heroicon-o-clock');
 
         if (! $lastReadingAt) {

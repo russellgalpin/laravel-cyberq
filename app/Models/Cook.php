@@ -91,6 +91,19 @@ class Cook extends Model
         return $this->started_at->diffAsCarbonInterval($end);
     }
 
+    public function durationForHumans(bool $short = true): ?string
+    {
+        $duration = $this->duration();
+
+        if (! $duration) {
+            return null;
+        }
+
+        return CarbonInterval::minutes((int) $duration->totalMinutes)
+            ->cascade()
+            ->forHumans(['short' => $short, 'parts' => 2]);
+    }
+
     public function lastReadingAt(): ?CarbonInterface
     {
         $lastReadingAt = $this->readings_max_created_at ?? $this->readings()->max('created_at');

@@ -30,7 +30,7 @@ class CooksTable
                     ->placeholder('In progress')
                     ->sortable(),
                 TextColumn::make('duration')
-                    ->state(fn (Cook $cook) => $cook->duration()?->forHumans(['short' => true, 'parts' => 2])),
+                    ->state(fn (Cook $cook) => $cook->durationForHumans()),
                 IconColumn::make('in_progress')
                     ->label('In progress')
                     ->boolean(),

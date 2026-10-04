@@ -56,6 +56,9 @@ class CookComparisonChart extends ApexChartWidget
                 'data' => (new CookTimeline($cook, maxPoints: 250))->temperaturesByElapsedHours($this->probe()),
             ]);
 
+        $longestCookHours = (int) ceil($series->flatMap(fn (array $cook) => array_column($cook['data'], 0))->max() ?? 1);
+        $hoursPerTick = (int) ceil($longestCookHours / 16);
+
         return [
             'chart' => [
                 'type' => 'line',
@@ -69,7 +72,9 @@ class CookComparisonChart extends ApexChartWidget
             'xaxis' => [
                 'type' => 'numeric',
                 'title' => ['text' => 'Hours since the cook started'],
-                'tickAmount' => 12,
+                'min' => 0,
+                'max' => max(1, (int) ceil($longestCookHours / $hoursPerTick) * $hoursPerTick),
+                'tickAmount' => max(1, (int) ceil($longestCookHours / $hoursPerTick)),
             ],
             'yaxis' => ['title' => ['text' => '°F']],
             'legend' => ['show' => true, 'position' => 'top', 'showForSingleSeries' => true],
@@ -84,7 +89,7 @@ class CookComparisonChart extends ApexChartWidget
         return RawJs::make(<<<'JS'
         {
             xaxis: {
-                labels: { formatter: (value) => `${Math.round(value * 10) / 10}h` },
+                labels: { formatter: (value) => `${Math.round(value)}h` },
             },
             yaxis: {
                 title: { text: '°F' },

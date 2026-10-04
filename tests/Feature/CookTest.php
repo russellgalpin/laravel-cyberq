@@ -87,3 +87,12 @@ it('only maps temperature probes to a target and status', function () {
         ->and(Probe::setPointKeyFor(Probe::FAN_OUTPUT))->toBeNull()
         ->and(Probe::statusKeyFor('COOK_RAMP'))->toBeNull();
 });
+
+it('describes its duration to the minute', function () {
+    $this->freezeSecond();
+
+    $cook = Cook::factory()->make(['started_at' => now()->subHours(10)->subSeconds(20), 'ended_at' => now()]);
+
+    expect($cook->durationForHumans())->toBe('10h')
+        ->and($cook->durationForHumans(short: false))->toBe('10 hours');
+});

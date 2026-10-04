@@ -54,3 +54,12 @@ it('ignores a probe it does not know about', function () {
 
     expect($chart->probe())->toBe(Probe::FOOD1);
 });
+
+it('marks the hours axis in whole hours', function () {
+    $cook = Cook::factory()->ended()->create();
+    recordReadings($cook, Probe::FOOD1, [0 => [400, null], 695 => [2000, null]]);
+
+    $options = Livewire::test(CookComparisonChart::class, ['pageFilters' => ['cooks' => [$cook->id]]])->get('options');
+
+    expect($options['xaxis'])->toMatchArray(['min' => 0, 'max' => 12, 'tickAmount' => 12]);
+});

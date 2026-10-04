@@ -30,7 +30,7 @@ class CookInfolist
                             ->placeholder('In progress')
                             ->helperText(fn (Cook $record) => $record->ended_automatically ? 'Ended automatically after the CyberQ stopped reporting.' : null),
                         TextEntry::make('duration')
-                            ->state(fn (Cook $record) => $record->duration()?->forHumans(['parts' => 2])),
+                            ->state(fn (Cook $record) => $record->durationForHumans(short: false)),
                         TextEntry::make('description')->placeholder('-')->columnSpanFull(),
                     ]),
                 Section::make('Summary')
