@@ -138,3 +138,14 @@ it('reuses an existing token in the tests helper', function () {
 
     $this->getJson('/api/v1/user')->assertOk();
 });
+
+it('identifies itself to the app without signing in', function () {
+    $this->getJson('/api/v1/instance')
+        ->assertOk()
+        ->assertExactJson(['data' => [
+            'app' => 'cyberq',
+            'name' => config('app.name'),
+            'api_version' => 1,
+            'passkey_relying_party' => parse_url(config('app.url'), PHP_URL_HOST),
+        ]]);
+});

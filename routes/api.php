@@ -8,10 +8,13 @@ use App\Http\Controllers\Api\CurrentUserController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EndedCooksController;
 use App\Http\Controllers\Api\GurusController;
+use App\Http\Controllers\Api\InstanceController;
 use App\Http\Controllers\Api\PasskeyChallengesController;
 use App\Http\Controllers\Api\PasskeyTokensController;
 use App\Http\Controllers\Api\TokensController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/instance', [InstanceController::class, 'show'])->middleware('throttle:60,1')->name('api.instance.show');
 
 Route::middleware('throttle:6,1')->group(function () {
     Route::post('/tokens', [TokensController::class, 'store'])->name('api.tokens.store');
