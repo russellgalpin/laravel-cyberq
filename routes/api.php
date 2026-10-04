@@ -9,18 +9,12 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EndedCooksController;
 use App\Http\Controllers\Api\GurusController;
 use App\Http\Controllers\Api\InstanceController;
-use App\Http\Controllers\Api\PasskeyChallengesController;
-use App\Http\Controllers\Api\PasskeyTokensController;
 use App\Http\Controllers\Api\TokensController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/instance', [InstanceController::class, 'show'])->middleware('throttle:60,1')->name('api.instance.show');
 
-Route::middleware('throttle:6,1')->group(function () {
-    Route::post('/tokens', [TokensController::class, 'store'])->name('api.tokens.store');
-    Route::post('/passkey-challenges', [PasskeyChallengesController::class, 'store'])->name('api.passkeyChallenges.store');
-    Route::post('/passkey-tokens', [PasskeyTokensController::class, 'store'])->name('api.passkeyTokens.store');
-});
+Route::post('/tokens', [TokensController::class, 'store'])->middleware('throttle:6,1')->name('api.tokens.store');
 
 Route::middleware('auth:sanctum')->name('api.')->group(function () {
     Route::delete('/tokens/current', [TokensController::class, 'destroy'])->name('tokens.destroy');
