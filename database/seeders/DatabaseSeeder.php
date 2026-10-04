@@ -2,19 +2,19 @@
 
 namespace Database\Seeders;
 
+use App\Models\Guru;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     *
-     * @return void
-     */
-    public function run()
+    public function run(): void
     {
-        $this->call([
-           GuruSeeder::class,
+        User::factory()->create([
+            'name' => 'Test User',
+            'email' => 'test@example.com',
         ]);
+
+        Guru::factory()->withProbes()->create();
     }
 }

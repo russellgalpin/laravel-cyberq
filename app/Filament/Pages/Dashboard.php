@@ -2,29 +2,41 @@
 
 namespace App\Filament\Pages;
 
-
-use App\Filament\Widgets\CurrentCookChart;
-use App\Filament\Widgets\FanSpeedChart;
-use App\Filament\Widgets\StatsOverview;
-use Filament\Facades\Filament;
+use App\Filament\Actions\SetTargetsAction;
+use App\Filament\Resources\Cooks\CookResource;
+use App\Filament\Widgets\CookTemperatureChart;
+use App\Filament\Widgets\CurrentCookStats;
+use App\Filament\Widgets\FanOutputChart;
+use App\Filament\Widgets\FanOutputGauge;
+use App\Models\Cook;
+use Filament\Actions\Action;
 
 class Dashboard extends \Filament\Pages\Dashboard
 {
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
-
-    protected static string $view = 'filament.pages.dashboard';
-
-    public function getHeaderWidgets(): array
+    public function getWidgets(): array
     {
         return [
-            StatsOverview::class,
-            CurrentCookChart::class,
-            FanSpeedChart::class,
+            CurrentCookStats::class,
+            CookTemperatureChart::class,
+            FanOutputGauge::class,
+            FanOutputChart::class,
         ];
     }
 
-    public function getHeaderWidgetsColumns(): int | array
+    public function getColumns(): int|array
     {
-        return 12;
+        return ['md' => 3];
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            SetTargetsAction::make(),
+            Action::make('startCook')
+                ->label('Start a cook')
+                ->icon('heroicon-o-play')
+                ->visible(fn () => Cook::current() === null)
+                ->url(CookResource::getUrl('create')),
+        ];
     }
 }

@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Services\Guru\CyberQ;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Guru extends Model
 {
@@ -11,14 +13,27 @@ class Guru extends Model
 
     protected $fillable = [
         'name',
-        'username',
         'ip',
         'username',
-        'password'
+        'password',
     ];
 
-    public function probes()
+    protected $hidden = [
+        'password',
+    ];
+
+    public function probes(): HasMany
     {
         return $this->hasMany(Probe::class);
+    }
+
+    public function cooks(): HasMany
+    {
+        return $this->hasMany(Cook::class);
+    }
+
+    public function cyberQ(): CyberQ
+    {
+        return new CyberQ($this);
     }
 }
