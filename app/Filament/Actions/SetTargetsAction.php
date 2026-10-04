@@ -2,9 +2,9 @@
 
 namespace App\Filament\Actions;
 
-use App\Models\Cook;
 use App\Models\Guru;
 use App\Services\Guru\CyberQUnreachable;
+use App\Support\ControllerSettings;
 use App\Support\TargetTemperatures;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
@@ -13,20 +13,16 @@ use Filament\Schemas\Components\Grid;
 
 class SetTargetsAction
 {
-    public const float MINIMUM_FAHRENHEIT = 32;
-
-    public const float MAXIMUM_FAHRENHEIT = 475;
-
     public static function make(): Action
     {
         return Action::make('setTargets')
             ->label('Set targets')
             ->icon('heroicon-o-adjustments-horizontal')
             ->modalDescription('Changes are sent straight to the CyberQ.')
-            ->visible(fn () => self::guru() !== null)
+            ->visible(fn () => Guru::inUse() !== null)
             ->fillForm(function (Action $action) {
                 try {
-                    return TargetTemperatures::fromDevice(self::guru()->cyberQ()->status());
+                    return TargetTemperatures::fromDevice(Guru::inUse()->cyberQ()->status());
                 } catch (CyberQUnreachable $exception) {
                     Notification::make()->title('The CyberQ is not responding')->body($exception->getMessage())->danger()->send();
 
@@ -43,7 +39,7 @@ class SetTargetsAction
             ])
             ->action(function (array $data, Action $action) {
                 try {
-                    self::guru()->cyberQ()->update(array_filter($data, fn ($value) => $value !== null));
+                    Guru::inUse()->cyberQ()->update(array_filter($data, fn ($value) => $value !== null));
                 } catch (CyberQUnreachable $exception) {
                     Notification::make()->title('The targets were not changed')->body($exception->getMessage())->danger()->send();
 
@@ -60,13 +56,8 @@ class SetTargetsAction
             ->label($label)
             ->numeric()
             ->step(1)
-            ->minValue(self::MINIMUM_FAHRENHEIT)
-            ->maxValue(self::MAXIMUM_FAHRENHEIT)
+            ->minValue(ControllerSettings::MINIMUM_FAHRENHEIT)
+            ->maxValue(ControllerSettings::MAXIMUM_FAHRENHEIT)
             ->suffix('°F');
-    }
-
-    public static function guru(): ?Guru
-    {
-        return Cook::current()?->guru ?? Guru::query()->first();
     }
 }

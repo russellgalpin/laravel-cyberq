@@ -2,8 +2,11 @@
 
 namespace App\Support;
 
+use App\Enums\RampProbe;
+use App\Enums\TimeoutAction;
 use App\Services\Guru\DeviceStatus;
 use BackedEnum;
+use Illuminate\Validation\Rule;
 
 /**
  * Maps the CyberQ's settings between the device (temperatures in tenths of a
@@ -36,7 +39,53 @@ class ControllerSettings
 
     public const string TIMER_FIELD = 'COOK_TIMER';
 
+    public const string TIMER_PATTERN = '/^\d{1,2}:[0-5]\d:[0-5]\d$/';
+
+    public const int MINIMUM_FAHRENHEIT = 32;
+
+    public const int MAXIMUM_FAHRENHEIT = 475;
+
+    public const int MINIMUM_BAND_FAHRENHEIT = 5;
+
+    public const int MAXIMUM_BAND_FAHRENHEIT = 100;
+
+    public const int MAXIMUM_CYCLE_SECONDS = 30;
+
+    public const int MAXIMUM_NAME_LENGTH = 31;
+
     public const string OPEN_LID_FIELD = 'OPENDETECT';
+
+    /**
+     * Validation rules for changing settings through the API. Every field is
+     * optional so a client can send just what it wants to change.
+     *
+     * @return array<string, list<mixed>>
+     */
+    public static function rules(): array
+    {
+        $temperature = ['nullable', 'numeric', 'min:'.self::MINIMUM_FAHRENHEIT, 'max:'.self::MAXIMUM_FAHRENHEIT];
+        $band = ['nullable', 'numeric', 'min:'.self::MINIMUM_BAND_FAHRENHEIT, 'max:'.self::MAXIMUM_BAND_FAHRENHEIT];
+        $name = ['nullable', 'string', 'max:'.self::MAXIMUM_NAME_LENGTH];
+
+        return [
+            'COOK_SET' => $temperature,
+            'FOOD1_SET' => $temperature,
+            'FOOD2_SET' => $temperature,
+            'FOOD3_SET' => $temperature,
+            'COOKHOLD' => $temperature,
+            'ALARMDEV' => $band,
+            'PROPBAND' => $band,
+            'COOK_NAME' => $name,
+            'FOOD1_NAME' => $name,
+            'FOOD2_NAME' => $name,
+            'FOOD3_NAME' => $name,
+            self::TIMER_FIELD => ['nullable', 'string', 'regex:'.self::TIMER_PATTERN],
+            'TIMEOUT_ACTION' => ['nullable', Rule::enum(TimeoutAction::class)],
+            'COOK_RAMP' => ['nullable', Rule::enum(RampProbe::class)],
+            self::OPEN_LID_FIELD => ['nullable', 'boolean'],
+            'CYCTIME' => ['nullable', 'integer', 'min:1', 'max:'.self::MAXIMUM_CYCLE_SECONDS],
+        ];
+    }
 
     /** @return array<string, mixed> */
     public static function fromDevice(DeviceStatus $settings): array

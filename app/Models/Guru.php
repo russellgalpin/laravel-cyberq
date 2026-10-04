@@ -32,6 +32,14 @@ class Guru extends Model
         return $this->hasMany(Cook::class);
     }
 
+    /**
+     * The CyberQ to control: the one the current cook is on, or the only one there is.
+     */
+    public static function inUse(): ?self
+    {
+        return Cook::current()?->guru ?? self::query()->first();
+    }
+
     public function cyberQ(): CyberQ
     {
         return new CyberQ($this);

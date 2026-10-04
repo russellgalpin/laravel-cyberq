@@ -19,10 +19,5 @@ class ChartPalette
 
     public const array SERIES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
 
-    public const array PROBE_LABELS = [
-        Probe::PIT => 'Pit',
-        Probe::FOOD1 => 'Food 1',
-        Probe::FOOD2 => 'Food 2',
-        Probe::FOOD3 => 'Food 3',
-    ];
+    public const array PROBE_LABELS = Probe::LABELS;
 }

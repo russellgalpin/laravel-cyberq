@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Enums\RampProbe;
 use App\Enums\TimeoutAction;
 use App\Filament\Actions\SetTargetsAction;
+use App\Models\Guru;
 use App\Services\Guru\CyberQUnreachable;
 use App\Support\ControllerSettings;
 use BackedEnum;
@@ -52,7 +53,7 @@ class Controller extends Page
 
     public function loadFromDevice(): void
     {
-        $guru = SetTargetsAction::guru();
+        $guru = Guru::inUse();
 
         if (! $guru) {
             $this->unreachableReason = 'No CyberQ has been set up yet.';
@@ -84,7 +85,7 @@ class Controller extends Page
         }
 
         try {
-            SetTargetsAction::guru()->cyberQ()->update($changes);
+            Guru::inUse()->cyberQ()->update($changes);
         } catch (CyberQUnreachable $exception) {
             Notification::make()->title('The CyberQ was not updated')->body($exception->getMessage())->danger()->send();
 
@@ -120,10 +121,10 @@ class Controller extends Page
                     ->columns(['sm' => 2, 'lg' => 4])
                     ->collapsible()
                     ->schema([
-                        TextInput::make('COOK_NAME')->label('Pit')->maxLength(31),
-                        TextInput::make('FOOD1_NAME')->label('Food 1')->maxLength(31),
-                        TextInput::make('FOOD2_NAME')->label('Food 2')->maxLength(31),
-                        TextInput::make('FOOD3_NAME')->label('Food 3')->maxLength(31),
+                        TextInput::make('COOK_NAME')->label('Pit')->maxLength(ControllerSettings::MAXIMUM_NAME_LENGTH),
+                        TextInput::make('FOOD1_NAME')->label('Food 1')->maxLength(ControllerSettings::MAXIMUM_NAME_LENGTH),
+                        TextInput::make('FOOD2_NAME')->label('Food 2')->maxLength(ControllerSettings::MAXIMUM_NAME_LENGTH),
+                        TextInput::make('FOOD3_NAME')->label('Food 3')->maxLength(ControllerSettings::MAXIMUM_NAME_LENGTH),
                     ]),
                 Section::make('Cook timer')
                     ->description('Counts down on the CyberQ. What happens when it reaches zero is set by "When the timer ends" below.')
@@ -132,7 +133,7 @@ class Controller extends Page
                         TextInput::make(ControllerSettings::TIMER_FIELD)
                             ->label('Time remaining')
                             ->placeholder('HH:MM:SS')
-                            ->regex('/^\d{1,2}:[0-5]\d:[0-5]\d$/')
+                            ->regex(ControllerSettings::TIMER_PATTERN)
                             ->validationMessages(['regex' => 'Use hours, minutes and seconds, like 04:30:00.']),
                     ]),
                 Section::make('Control')
@@ -157,22 +158,22 @@ class Controller extends Page
                         TextInput::make('ALARMDEV')
                             ->label('Alarm deviation')
                             ->numeric()
-                            ->minValue(5)
-                            ->maxValue(100)
+                            ->minValue(ControllerSettings::MINIMUM_BAND_FAHRENHEIT)
+                            ->maxValue(ControllerSettings::MAXIMUM_BAND_FAHRENHEIT)
                             ->suffix('°F')
                             ->helperText('Alarm when the pit strays this far from its target.'),
                         TextInput::make('PROPBAND')
                             ->label('Proportional band')
                             ->numeric()
-                            ->minValue(5)
-                            ->maxValue(100)
+                            ->minValue(ControllerSettings::MINIMUM_BAND_FAHRENHEIT)
+                            ->maxValue(ControllerSettings::MAXIMUM_BAND_FAHRENHEIT)
                             ->suffix('°F')
                             ->helperText('How far below target the fan starts to slow down. Smaller is more aggressive.'),
                         TextInput::make('CYCTIME')
                             ->label('Cycle time')
                             ->integer()
                             ->minValue(1)
-                            ->maxValue(30)
+                            ->maxValue(ControllerSettings::MAXIMUM_CYCLE_SECONDS)
                             ->suffix('seconds')
                             ->helperText('How often the fan output is recalculated.'),
                     ]),

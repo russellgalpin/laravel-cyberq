@@ -28,6 +28,13 @@ class Probe extends Model
         self::FOOD3,
     ];
 
+    public const array LABELS = [
+        self::PIT => 'Pit',
+        self::FOOD1 => 'Food 1',
+        self::FOOD2 => 'Food 2',
+        self::FOOD3 => 'Food 3',
+    ];
+
     protected $fillable = [
         'guru_id',
         'name',

@@ -40,4 +40,9 @@ return [
         'abandoned_cook_hours' => env('CYBERQ_ABANDONED_COOK_HOURS', 12),
     ],
 
+    'ios' => [
+        // Team ID + bundle ID of the iPhone app, e.g. ABCDE12345.net.lrhosting.cyberq, so it may use this site's passkeys.
+        'app_ids' => array_filter(explode(',', (string) env('IOS_APP_IDS', ''))),
+    ],
+
 ];
