@@ -70,3 +70,24 @@ it('carries on quietly when the CyberQ is switched off', function () {
 
     expect(Reading::count())->toBe(0);
 });
+
+it('only records the probes chosen for the cook, plus the fan', function () {
+    $cook = Cook::factory()->create();
+    $cook->useProbes([Probe::PIT]);
+
+    $this->artisan('cooks:run')->assertSuccessful();
+
+    expect($cook->readings()->with('probe')->get()->pluck('probe.identifier')->sort()->values()->all())
+        ->toBe(['COOK_RAMP', Probe::PIT, Probe::FAN_OUTPUT]);
+});
+
+it('picks up a probe added part way through a cook', function () {
+    $cook = Cook::factory()->create();
+    $cook->useProbes([Probe::PIT]);
+    $this->artisan('cooks:run');
+
+    $cook->useProbes([Probe::PIT, Probe::FOOD1]);
+    $this->artisan('cooks:run');
+
+    expect($cook->readings()->whereRelation('probe', 'identifier', Probe::FOOD1)->count())->toBe(1);
+});

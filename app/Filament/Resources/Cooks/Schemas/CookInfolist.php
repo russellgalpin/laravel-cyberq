@@ -29,6 +29,10 @@ class CookInfolist
                             ->dateTime('D j M Y, H:i')
                             ->placeholder('In progress')
                             ->helperText(fn (Cook $record) => $record->ended_automatically ? 'Ended automatically after the CyberQ stopped reporting.' : null),
+                        TextEntry::make('probes_in_use')
+                            ->label('Probes in use')
+                            ->state(fn (Cook $record) => $record->probesInUse()->map(fn (Probe $probe) => $probe->label())->all())
+                            ->badge(),
                         TextEntry::make('duration')
                             ->state(fn (Cook $record) => $record->durationForHumans(short: false)),
                         TextEntry::make('description')->placeholder('-')->columnSpanFull(),

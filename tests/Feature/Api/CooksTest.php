@@ -26,15 +26,44 @@ it('lists cooks newest first, with paging and search', function () {
     $this->getJson('/api/v1/cooks?search=bris')->assertJsonCount(1, 'data');
 });
 
-it('starts a cook now unless told otherwise', function () {
-    $guru = Guru::factory()->create();
+it('starts a cook now with the pit and first food probe unless told otherwise', function () {
+    $guru = Guru::factory()->withProbes()->create();
 
     $this->postJson('/api/v1/cooks', ['name' => 'Ribs', 'guru_id' => $guru->id])
         ->assertCreated()
         ->assertJsonPath('data.name', 'Ribs')
-        ->assertJsonPath('data.in_progress', true);
+        ->assertJsonPath('data.in_progress', true)
+        ->assertJsonPath('data.probes', [Probe::PIT, Probe::FOOD1]);
 
     expect(Cook::current()->started_at->equalTo(now()))->toBeTrue();
+});
+
+it('starts a cook with the probes chosen in the app', function () {
+    $guru = Guru::factory()->withProbes()->create();
+
+    $this->postJson('/api/v1/cooks', ['name' => 'Two briskets', 'guru_id' => $guru->id, 'probes' => [Probe::FOOD2, Probe::FOOD1]])
+        ->assertCreated()
+        ->assertJsonPath('data.probes', [Probe::FOOD1, Probe::FOOD2]);
+});
+
+it('changes the probes during a cook', function () {
+    $cook = Cook::factory()->create();
+    $cook->useProbes([Probe::PIT]);
+
+    $this->patchJson("/api/v1/cooks/{$cook->id}", ['probes' => [Probe::PIT, Probe::FOOD3]])
+        ->assertOk()
+        ->assertJsonPath('data.probes', [Probe::PIT, Probe::FOOD3]);
+
+    $this->patchJson("/api/v1/cooks/{$cook->id}", ['name' => 'Renamed'])
+        ->assertJsonPath('data.probes', [Probe::PIT, Probe::FOOD3]);
+});
+
+it('only accepts real probes, and at least one', function () {
+    $guru = Guru::factory()->withProbes()->create();
+
+    $this->postJson('/api/v1/cooks', ['name' => 'Ribs', 'guru_id' => $guru->id, 'probes' => []])->assertJsonValidationErrors('probes');
+    $this->postJson('/api/v1/cooks', ['name' => 'Ribs', 'guru_id' => $guru->id, 'probes' => ['OUTPUT_PERCENT', Probe::PIT, Probe::PIT]])
+        ->assertJsonValidationErrors(['probes.0', 'probes.1']);
 });
 
 it('validates a new cook', function () {
@@ -114,11 +143,14 @@ it('compares cooks by hours into the cook', function () {
     $this->getJson('/api/v1/cook-comparisons?cooks[]=999&probe=WIFI_KEY')->assertJsonValidationErrors(['cooks.0', 'probe']);
 });
 
-it('lists the CyberQs to cook on', function () {
-    Guru::factory()->create(['name' => 'Home']);
+it('lists the CyberQs to cook on, with their probes', function () {
+    Guru::factory()->withProbes()->create(['name' => 'Home']);
 
     $this->getJson('/api/v1/gurus')
         ->assertOk()
         ->assertJsonPath('data.0.name', 'Home')
+        ->assertJsonPath('data.0.probes.*.identifier', Probe::TEMPERATURES)
+        ->assertJsonPath('data.0.probes.0', ['identifier' => Probe::PIT, 'label' => 'Pit', 'in_use_by_default' => true])
+        ->assertJsonPath('data.0.probes.2.in_use_by_default', false)
         ->assertJsonMissingPath('data.0.password');
 });

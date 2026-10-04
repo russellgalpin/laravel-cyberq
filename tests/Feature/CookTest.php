@@ -96,3 +96,16 @@ it('describes its duration to the minute', function () {
     expect($cook->durationForHumans())->toBe('10h')
         ->and($cook->durationForHumans(short: false))->toBe('10 hours');
 });
+
+it('uses every temperature probe when none were chosen', function () {
+    $cook = Cook::factory()->create();
+
+    expect($cook->probesInUse()->pluck('identifier')->all())->toBe(Probe::TEMPERATURES);
+});
+
+it('lists the chosen probes in order', function () {
+    $cook = Cook::factory()->create();
+    $cook->useProbes([Probe::FOOD3, Probe::PIT, 'OUTPUT_PERCENT']);
+
+    expect($cook->probesInUse()->pluck('identifier')->all())->toBe([Probe::PIT, Probe::FOOD3]);
+});

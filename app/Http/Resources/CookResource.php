@@ -31,6 +31,7 @@ class CookResource extends JsonResource
             'ended_at' => $this->ended_at?->toIso8601String(),
             'ended_automatically' => $this->ended_automatically,
             'in_progress' => $this->in_progress,
+            'probes' => $this->probesInUse()->pluck('identifier')->values(),
             'duration_minutes' => $this->duration() ? (int) $this->duration()->totalMinutes : null,
             'summary' => $this->when($this->withSummary, fn () => $this->summary()),
         ];

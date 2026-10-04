@@ -11,6 +11,6 @@ class GurusController extends Controller
 {
     public function index(): AnonymousResourceCollection
     {
-        return GuruResource::collection(Guru::query()->orderBy('name')->get());
+        return GuruResource::collection(Guru::query()->with('probes')->orderBy('name')->get());
     }
 }

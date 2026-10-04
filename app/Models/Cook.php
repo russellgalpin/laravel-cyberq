@@ -8,9 +8,11 @@ use Carbon\CarbonInterval;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -61,6 +63,37 @@ class Cook extends Model
     public function readings(): HasMany
     {
         return $this->hasMany(Reading::class);
+    }
+
+    /**
+     * The temperature probes chosen for this cook. Cooks from before probes
+     * could be chosen have none, and use every probe the CyberQ reports.
+     */
+    public function probes(): BelongsToMany
+    {
+        return $this->belongsToMany(Probe::class);
+    }
+
+    /** @return Collection<int, Probe> */
+    public function probesInUse(): Collection
+    {
+        $probes = $this->probes->isNotEmpty() ?
+            $this->probes :
+            $this->guru->probes->filter(fn (Probe $probe) => $probe->isTemperature());
+
+        return $probes
+            ->sortBy(fn (Probe $probe) => array_search($probe->identifier, Probe::TEMPERATURES, true))
+            ->values();
+    }
+
+    /** @param list<string> $identifiers */
+    public function useProbes(array $identifiers): void
+    {
+        $this->probes()->sync(
+            $this->guru->probes()->whereIn('identifier', array_intersect($identifiers, Probe::TEMPERATURES))->pluck('id')
+        );
+
+        $this->unsetRelation('probes');
     }
 
     #[Scope]

@@ -46,6 +46,17 @@ class Probe extends Model
         return $this->belongsTo(Guru::class);
     }
 
+    /** The pit and food probes a new cook starts with unless others are chosen. */
+    public const array DEFAULT_FOR_NEW_COOKS = [
+        self::PIT,
+        self::FOOD1,
+    ];
+
+    public function label(): string
+    {
+        return self::LABELS[$this->identifier] ?? $this->name;
+    }
+
     public function isTemperature(): bool
     {
         return in_array($this->identifier, self::TEMPERATURES, true);

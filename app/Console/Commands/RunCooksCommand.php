@@ -24,7 +24,7 @@ class RunCooksCommand extends Command
 
     public function handle(): int
     {
-        $activeCooks = Cook::query()->active()->with('guru.probes')->get();
+        $activeCooks = Cook::query()->active()->with(['guru.probes', 'probes'])->get();
 
         if ($activeCooks->isEmpty()) {
             $this->comment('No cooks in progress.');
@@ -55,7 +55,10 @@ class RunCooksCommand extends Command
         }
 
         $cooks->each(function (Cook $cook) use ($status) {
+            $inUse = $cook->probesInUse()->pluck('identifier');
+
             $recorded = $cook->guru->probes
+                ->filter(fn (Probe $probe) => ! $probe->isTemperature() || $inUse->contains($probe->identifier))
                 ->filter(fn (Probe $probe) => $this->record($cook, $probe, $status))
                 ->count();
 

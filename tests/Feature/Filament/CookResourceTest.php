@@ -33,8 +33,8 @@ it('lists cooks newest first', function () {
         ->assertActionHidden(TestAction::make('endCook')->table($old));
 });
 
-it('starts a cook on the CyberQ', function () {
-    $guru = Guru::factory()->create();
+it('starts a cook on the CyberQ with the pit and first food probe ticked', function () {
+    $guru = Guru::factory()->withProbes()->create();
 
     Livewire::test(CreateCook::class)
         ->assertSchemaStateSet(['guru_id' => $guru->id])
@@ -42,11 +42,42 @@ it('starts a cook on the CyberQ', function () {
         ->call('create')
         ->assertHasNoFormErrors();
 
-    expect(Cook::current())->name->toBe('Ribs')->guru_id->toBe($guru->id);
+    $cook = Cook::current();
+
+    expect($cook)->name->toBe('Ribs')->guru_id->toBe($guru->id)
+        ->and($cook->probesInUse()->pluck('identifier')->all())->toBe([Probe::PIT, Probe::FOOD1]);
+});
+
+it('starts a cook with whichever probes are in use', function () {
+    $guru = Guru::factory()->withProbes()->create();
+    $chosen = $guru->probes->whereIn('identifier', [Probe::FOOD2, Probe::FOOD3])->pluck('id')->map(fn ($id) => (string) $id)->values()->all();
+
+    Livewire::test(CreateCook::class)
+        ->fillForm(['name' => 'Two briskets', 'started_at' => now(), 'probes' => $chosen])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    expect(Cook::current()->probesInUse()->pluck('identifier')->all())->toBe([Probe::FOOD2, Probe::FOOD3]);
+});
+
+it('needs at least one probe', function () {
+    Guru::factory()->withProbes()->create();
+
+    Livewire::test(CreateCook::class)
+        ->fillForm(['name' => 'Nothing', 'started_at' => now(), 'probes' => []])
+        ->call('create')
+        ->assertHasFormErrors(['probes' => 'required']);
+});
+
+it('shows every probe ticked for cooks from before probes could be chosen', function () {
+    $cook = Cook::factory()->ended()->create();
+
+    Livewire::test(EditCook::class, ['record' => $cook->getRouteKey()])
+        ->assertSet('data.probes', fn (array $probes) => count($probes) === 4);
 });
 
 it('needs a name to start a cook', function () {
-    Guru::factory()->create();
+    Guru::factory()->withProbes()->create();
 
     Livewire::test(CreateCook::class)
         ->fillForm(['name' => ''])
@@ -120,4 +151,21 @@ it('does not keep refreshing the graphs of a finished cook', function () {
     $chart = Livewire::test(CookTemperatureChart::class, ['record' => $cook])->instance();
 
     expect((fn () => $this->getPollingInterval())->call($chart))->toBeNull();
+});
+
+it('offers each probe as a checkbox when starting a cook', function () {
+    Guru::factory()->withProbes()->create();
+
+    $this->get('/cooks/create')
+        ->assertOk()
+        ->assertSeeInOrder(['Probes in use', 'Pit', 'Food 1', 'Food 2', 'Food 3', 'Only these are recorded']);
+});
+
+it('shows which probes a cook used', function () {
+    $cook = Cook::factory()->ended()->create();
+    $cook->useProbes([Probe::PIT, Probe::FOOD2]);
+
+    $this->get("/cooks/{$cook->id}")
+        ->assertOk()
+        ->assertSeeInOrder(['Probes in use', 'Pit', 'Food 2']);
 });
