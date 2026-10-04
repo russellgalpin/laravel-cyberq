@@ -63,3 +63,12 @@ it('only includes readings from its own cook', function () {
     expect($timeline->hasReadingsFor(Probe::PIT))->toBeFalse()
         ->and($timeline->temperatures(Probe::PIT))->toBe([]);
 });
+
+it('stops comparing a forgotten cook once the CyberQ went quiet', function () {
+    recordReadings($this->cook, Probe::FOOD1, [0 => [500, null], 60 => [1500, null], 600 => [700, null], 610 => [690, null]]);
+
+    $timeline = new CookTimeline($this->cook);
+
+    expect($timeline->temperaturesByElapsedHours(Probe::FOOD1))->toBe([[0.0, 50.0], [1.0, 150.0]])
+        ->and($timeline->activeUntil(Probe::FOOD1)->equalTo($this->cook->started_at->copy()->addHour()))->toBeTrue();
+});

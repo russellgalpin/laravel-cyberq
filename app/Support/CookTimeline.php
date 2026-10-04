@@ -15,6 +15,12 @@ use Illuminate\Support\Collection;
  */
 class CookTimeline
 {
+    /**
+     * A gap this long in a probe's readings means the cook was really over and
+     * the CyberQ was switched off, even if nobody ended the cook.
+     */
+    public const int COOK_OVER_AFTER_GAP_MINUTES = 120;
+
     /** @var Collection<string, Collection<int, object>>|null */
     private ?Collection $readingsByIdentifier = null;
 
@@ -49,10 +55,32 @@ class CookTimeline
     public function temperaturesByElapsedHours(string $identifier): array
     {
         $startedAt = $this->cook->started_at->getTimestampMs();
+        $activeUntil = $this->activeUntil($identifier)?->getTimestampMs();
 
         return collect($this->temperatures($identifier))
+            ->filter(fn (array $point) => $activeUntil === null || $point[0] <= $activeUntil)
             ->map(fn (array $point) => [round(($point[0] - $startedAt) / 3_600_000, 3), $point[1]])
             ->all();
+    }
+
+    /**
+     * The last reading before the probe first went quiet for COOK_OVER_AFTER_GAP_MINUTES.
+     */
+    public function activeUntil(string $identifier): ?CarbonInterface
+    {
+        $previous = null;
+
+        foreach ($this->readings($identifier) as $reading) {
+            $at = Carbon::parse($reading->created_at);
+
+            if ($previous && $previous->diffInMinutes($at) > self::COOK_OVER_AFTER_GAP_MINUTES) {
+                return $previous;
+            }
+
+            $previous = $at;
+        }
+
+        return $previous;
     }
 
     public function hasReadingsFor(string $identifier): bool

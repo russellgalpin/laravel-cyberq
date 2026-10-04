@@ -56,8 +56,8 @@ class CookComparisonChart extends ApexChartWidget
                 'data' => (new CookTimeline($cook, maxPoints: 250))->temperaturesByElapsedHours($this->probe()),
             ]);
 
-        $longestCookHours = (int) ceil($series->flatMap(fn (array $cook) => array_column($cook['data'], 0))->max() ?? 1);
-        $hoursPerTick = (int) ceil($longestCookHours / 16);
+        $longestCookHours = max(1, (int) ceil($series->flatMap(fn (array $cook) => array_column($cook['data'], 0))->max() ?? 1));
+        $hoursPerTick = max(1, (int) ceil($longestCookHours / 16));
 
         return [
             'chart' => [

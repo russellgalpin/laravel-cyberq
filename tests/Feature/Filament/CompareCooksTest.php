@@ -57,9 +57,18 @@ it('ignores a probe it does not know about', function () {
 
 it('marks the hours axis in whole hours', function () {
     $cook = Cook::factory()->ended()->create();
-    recordReadings($cook, Probe::FOOD1, [0 => [400, null], 695 => [2000, null]]);
+    recordReadings($cook, Probe::FOOD1, collect(range(0, 695, 60))->push(695)->mapWithKeys(fn (int $minute) => [$minute => [400 + $minute * 2, null]])->all());
 
     $options = Livewire::test(CookComparisonChart::class, ['pageFilters' => ['cooks' => [$cook->id]]])->get('options');
 
     expect($options['xaxis'])->toMatchArray(['min' => 0, 'max' => 12, 'tickAmount' => 12]);
+});
+
+it('copes with cooks that only have a moment of readings', function () {
+    $cook = Cook::factory()->ended()->create();
+    recordReadings($cook, Probe::FOOD1, [0 => [400, null]]);
+
+    $options = Livewire::test(CookComparisonChart::class, ['pageFilters' => ['cooks' => [$cook->id]]])->get('options');
+
+    expect($options['xaxis'])->toMatchArray(['min' => 0, 'max' => 1, 'tickAmount' => 1]);
 });
