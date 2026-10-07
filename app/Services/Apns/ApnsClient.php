@@ -28,12 +28,24 @@ class ApnsClient
     /** @param array<string, mixed> $payload */
     public function sendLiveActivity(string $deviceToken, ApnsEnvironment $environment, array $payload, int $priority = 10): ApnsResult
     {
+        return $this->send($deviceToken, $environment, $payload, 'liveactivity', config('services.apns.bundle_id').'.push-type.liveactivity', $priority);
+    }
+
+    /** @param array<string, mixed> $payload */
+    public function sendAlert(string $deviceToken, ApnsEnvironment $environment, array $payload): ApnsResult
+    {
+        return $this->send($deviceToken, $environment, $payload, 'alert', config('services.apns.bundle_id'), 10);
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function send(string $deviceToken, ApnsEnvironment $environment, array $payload, string $pushType, string $topic, int $priority): ApnsResult
+    {
         try {
             $response = Http::withOptions(['version' => 2.0])
                 ->withToken($this->providerToken(), 'bearer')
                 ->withHeaders([
-                    'apns-push-type' => 'liveactivity',
-                    'apns-topic' => config('services.apns.bundle_id').'.push-type.liveactivity',
+                    'apns-push-type' => $pushType,
+                    'apns-topic' => $topic,
                     'apns-priority' => (string) $priority,
                 ])
                 ->timeout(10)
@@ -54,7 +66,7 @@ class ApnsClient
             return ApnsResult::TokenInvalid;
         }
 
-        Log::warning("APNs rejected a Live Activity push: {$response->status()} {$reason}");
+        Log::warning("APNs rejected a {$pushType} push: {$response->status()} {$reason}");
 
         return ApnsResult::Failed;
     }

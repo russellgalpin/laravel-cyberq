@@ -7,6 +7,7 @@ use App\Models\Probe;
 use App\Models\Reading;
 use App\Services\Guru\CyberQUnreachable;
 use App\Services\Guru\DeviceStatus;
+use App\Support\Alerts\CookAlertMonitor;
 use App\Support\LiveActivities\LiveActivityBroadcaster;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -17,8 +18,10 @@ use Illuminate\Support\Collection;
 #[Description('Record a reading from the CyberQ for every cook in progress')]
 class RunCooksCommand extends Command
 {
-    public function __construct(private readonly LiveActivityBroadcaster $liveActivities)
-    {
+    public function __construct(
+        private readonly LiveActivityBroadcaster $liveActivities,
+        private readonly CookAlertMonitor $alerts,
+    ) {
         parent::__construct();
     }
 
@@ -51,6 +54,8 @@ class RunCooksCommand extends Command
         } catch (CyberQUnreachable $exception) {
             $this->warn($exception->getMessage());
 
+            $cooks->each(fn (Cook $cook) => $this->alerts->afterMissedPoll($cook));
+
             return;
         }
 
@@ -65,6 +70,7 @@ class RunCooksCommand extends Command
             $this->comment("Recorded {$recorded} readings for cook `{$cook->name}`.");
 
             $this->liveActivities->update($cook);
+            $this->alerts->afterReadings($cook);
         });
     }
 

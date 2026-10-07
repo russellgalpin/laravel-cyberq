@@ -49,8 +49,8 @@ class CookSnapshot
     /** @return Collection<int, ProbeSnapshot> */
     public function probes(): Collection
     {
-        return collect(Probe::TEMPERATURES)
-            ->map(fn (string $identifier) => $this->probe($identifier))
+        return $this->cook->probesInUse()
+            ->map(fn (Probe $probe) => $this->probe($probe->identifier))
             ->filter()
             ->values();
     }
