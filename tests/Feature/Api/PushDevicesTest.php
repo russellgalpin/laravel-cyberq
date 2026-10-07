@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\ApnsEnvironment;
+use App\Models\LiveActivityToken;
 use App\Models\PushDevice;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
@@ -44,4 +45,21 @@ it('unregisters only the user\'s own phones', function () {
     $this->deleteJson("/api/v1/push-devices/{$theirs->token}")->assertNoContent();
 
     expect(PushDevice::pluck('id')->all())->toBe([$theirs->id]);
+});
+
+it('stops alerting a phone once its app signs out', function () {
+    app('auth')->forgetGuards();
+    $token = $this->user->createToken('iPhone');
+
+    $this->withToken($token->plainTextToken)
+        ->putJson('/api/v1/push-devices', ['token' => str_repeat('a', 64), 'environment' => 'production'])
+        ->assertOk();
+    $this->withToken($token->plainTextToken)
+        ->putJson('/api/v1/live-activity-tokens', ['token' => str_repeat('b', 64), 'kind' => 'start', 'environment' => 'production'])
+        ->assertNoContent();
+
+    $this->withToken($token->plainTextToken)->deleteJson('/api/v1/tokens/current')->assertNoContent();
+
+    expect(PushDevice::count())->toBe(0)
+        ->and(LiveActivityToken::count())->toBe(0);
 });

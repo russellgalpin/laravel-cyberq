@@ -27,7 +27,12 @@ class PushDevicesController extends Controller
 
         $device = PushDevice::query()->updateOrCreate(
             ['token' => strtolower($validated['token'])],
-            [...$validated, 'token' => strtolower($validated['token']), 'user_id' => $request->user()->id],
+            [
+                ...$validated,
+                'token' => strtolower($validated['token']),
+                'user_id' => $request->user()->id,
+                'personal_access_token_id' => $request->user()->currentPersonalAccessTokenId(),
+            ],
         );
 
         return response()->json([

@@ -16,6 +16,7 @@ class PushDevice extends Model
 
     protected $fillable = [
         'user_id',
+        'personal_access_token_id',
         'token',
         'environment',
         'pit_alerts',

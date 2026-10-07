@@ -11,6 +11,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Passkeys\Contracts\PasskeyUser;
 use Laravel\Passkeys\PasskeyAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class User extends Authenticatable implements FilamentUser, PasskeyUser
 {
@@ -38,6 +39,16 @@ class User extends Authenticatable implements FilamentUser, PasskeyUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * The saved API token behind the current request, if it came from the app.
+     */
+    public function currentPersonalAccessTokenId(): ?int
+    {
+        $token = $this->currentAccessToken();
+
+        return $token instanceof PersonalAccessToken && $token->exists ? $token->getKey() : null;
     }
 
     public function canAccessPanel(Panel $panel): bool

@@ -14,6 +14,7 @@ class LiveActivityToken extends Model
 
     protected $fillable = [
         'user_id',
+        'personal_access_token_id',
         'cook_id',
         'kind',
         'environment',

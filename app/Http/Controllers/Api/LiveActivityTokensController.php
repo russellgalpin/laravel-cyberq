@@ -40,6 +40,7 @@ class LiveActivityTokensController extends Controller
             ['token' => strtolower($validated['token'])],
             [
                 'user_id' => $request->user()->id,
+                'personal_access_token_id' => $request->user()->currentPersonalAccessTokenId(),
                 'kind' => $validated['kind'],
                 'environment' => $validated['environment'],
                 'cook_id' => $isStartToken ? null : $validated['cook_id'],
