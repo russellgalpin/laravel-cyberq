@@ -10,6 +10,7 @@ readonly class ProbeSnapshot
     public function __construct(
         public string $identifier,
         public string $label,
+        public string $name,
         public float $temperature,
         public ?float $target,
         public ?CarbonInterval $timeToTarget,

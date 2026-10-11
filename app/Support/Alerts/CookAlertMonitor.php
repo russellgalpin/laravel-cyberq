@@ -177,8 +177,8 @@ class CookAlertMonitor
 
         if ($probe->reachedTarget()) {
             $this->onceForTarget($cook, CookAlertKind::FoodReady, $probe, $target, fn () => $this->notifier->send(
-                $cook, CookAlertKind::FoodReady, "{$probe->label} is ready",
-                "{$cook->name}: {$probe->label} is {$degrees}, its target. Time to take it off."
+                $cook, CookAlertKind::FoodReady, "{$probe->name} is ready",
+                "{$cook->name}: {$probe->name} is {$degrees}, its target. Time to take it off."
             ));
 
             return;
@@ -191,8 +191,8 @@ class CookAlertMonitor
         }
 
         $this->onceForTarget($cook, CookAlertKind::FoodNearlyReady, $probe, $target, fn () => $this->notifier->send(
-            $cook, CookAlertKind::FoodNearlyReady, "{$probe->label} nearly ready",
-            "{$cook->name}: {$probe->label} is {$degrees} and should reach ".self::degrees($probe->target)." in about {$minutesToGo} minutes, around ".now()->addMinutes($minutesToGo)->format('H:i').'.'
+            $cook, CookAlertKind::FoodNearlyReady, "{$probe->name} nearly ready",
+            "{$cook->name}: {$probe->name} is {$degrees} and should reach ".self::degrees($probe->target)." in about {$minutesToGo} minutes, around ".now()->addMinutes($minutesToGo)->format('H:i').'.'
         ));
     }
 

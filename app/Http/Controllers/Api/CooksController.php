@@ -7,7 +7,6 @@ use App\Http\Requests\Api\StoreCookRequest;
 use App\Http\Requests\Api\UpdateCookRequest;
 use App\Http\Resources\CookResource;
 use App\Models\Cook;
-use App\Models\Probe;
 use App\Services\Guru\CyberQUnreachable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -28,16 +27,17 @@ class CooksController extends Controller
     public function store(StoreCookRequest $request): CookResource
     {
         $cook = Cook::create([
-            ...$request->safe()->except(['probes', 'pit_target', 'food_target']),
+            ...$request->safe()->only(['description', 'guru_id']),
+            'name' => $request->cookName(),
             'started_at' => $request->validated('started_at', now()),
         ]);
 
-        $cook->useProbes($request->validated('probes', Probe::DEFAULT_FOR_NEW_COOKS));
+        $cook->useProbes($request->probesToUse(), $request->foods());
 
         $resource = new CookResource($cook);
 
         try {
-            $cook->sendTargets($request->validated('pit_target'), $request->validated('food_target'));
+            $cook->sendTargets($request->pitTarget(), $request->foodTargets());
         } catch (CyberQUnreachable $exception) {
             $resource->additional(['meta' => [
                 'warning' => "The cook has started, but the CyberQ did not take the targets: {$exception->getMessage()}",
@@ -57,7 +57,7 @@ class CooksController extends Controller
         $cook->update($request->safe()->except('probes'));
 
         if ($request->has('probes')) {
-            $cook->useProbes($request->validated('probes'));
+            $cook->useProbes($request->probeIdentifiers(), $request->foods());
         }
 
         return new CookResource($cook);

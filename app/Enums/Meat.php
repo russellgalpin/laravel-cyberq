@@ -67,6 +67,39 @@ enum Meat: string implements HasLabel
         };
     }
 
+    /**
+     * A best guess at the meat from how a cook was described, for cooks from
+     * before meats could be chosen. More specific words are checked first, so
+     * "shoulder of lamb" is lamb and "short ribs" are not pork ribs.
+     */
+    public static function guessFrom(string $description): ?self
+    {
+        $description = strtolower($description);
+
+        $keywords = [
+            self::BeefShortRibs->value => ['short rib'],
+            self::ChickenThighs->value => ['thigh'],
+            self::PorkBelly->value => ['belly'],
+            self::Brisket->value => ['brisket'],
+            self::LambShoulder->value => ['lamb'],
+            self::PorkRibs->value => ['rib'],
+            self::PulledPork->value => ['pulled', 'pork', 'shoulder', 'butt'],
+            self::WholeChicken->value => ['chicken'],
+            self::Turkey->value => ['turkey'],
+            self::Gammon->value => ['gammon', 'ham '],
+            self::Salmon->value => ['salmon'],
+            self::BeefJoint->value => ['beef', 'topside', 'picanha', 'tri-tip'],
+        ];
+
+        foreach ($keywords as $meat => $words) {
+            if (collect($words)->contains(fn (string $word) => str_contains("{$description} ", $word))) {
+                return self::from($meat);
+            }
+        }
+
+        return null;
+    }
+
     /** @return array{
      *     value: string,
      *     label: string,

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Meat;
 use App\Models\Cook;
 use App\Models\Probe;
 use App\Models\PushDevice;
@@ -175,6 +176,15 @@ it('says when the food is ready, once, and again if the target is raised', funct
 
     expect(alertsSent()->pluck('title')->all())->toBe(['Food 1 is ready', 'Food 1 is ready'])
         ->and(alertsSent()[0]['body'])->toBe('Brisket: Food 1 is 204°F, its target. Time to take it off.');
+});
+
+it('names the food on the probe when it is known', function () {
+    $this->cook->useProbes([Probe::PIT, Probe::FOOD1], [Probe::FOOD1 => ['meat' => Meat::Brisket, 'name' => 'Point end']]);
+
+    poll([Probe::PIT => [240, 240], Probe::FOOD1 => [204, 203]]);
+
+    expect(alertsSent()->sole()['title'])->toBe('Point end is ready')
+        ->and(alertsSent()->sole()['body'])->toBe('Brisket: Point end is 204°F, its target. Time to take it off.');
 });
 
 it('only alerts about probes in use', function () {

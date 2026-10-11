@@ -29,6 +29,7 @@ it('reports the current cook', function () {
         ->assertJsonPath('data.probes.0.temperature', 250)
         ->assertJsonPath('data.probes.0.pit_health', 'warning')
         ->assertJsonPath('data.probes.1.identifier', Probe::FOOD1)
+        ->assertJsonPath('data.probes.1.name', 'Food 1')
         ->assertJsonPath('data.probes.1.reached_target', false)
         ->assertJsonPath('data.probes.1.minutes_to_target', fn (int $minutes) => $minutes > 0);
 });

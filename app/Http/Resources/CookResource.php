@@ -25,7 +25,6 @@ class CookResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'meat' => $this->meat?->value,
             'description' => $this->description,
             'guru_id' => $this->guru_id,
             'started_at' => $this->started_at?->toIso8601String(),
@@ -33,6 +32,17 @@ class CookResource extends JsonResource
             'ended_automatically' => $this->ended_automatically,
             'in_progress' => $this->in_progress,
             'probes' => $this->probesInUse()->pluck('identifier')->values(),
+            'foods' => $this->probesInUse()
+                ->reject(fn (Probe $probe) => $probe->identifier === Probe::PIT)
+                ->map(fn (Probe $probe) => [
+                    'identifier' => $probe->identifier,
+                    'label' => $probe->label(),
+                    'meat' => $probe->pivot?->meat?->value,
+                    'meat_label' => $probe->pivot?->meat?->getLabel(),
+                    'name' => $probe->pivot?->name,
+                    'display_name' => $this->probeName($probe->identifier),
+                ])
+                ->values(),
             'duration_minutes' => $this->duration() ? (int) $this->duration()->totalMinutes : null,
             'summary' => $this->when($this->withSummary, fn () => $this->summary()),
         ];

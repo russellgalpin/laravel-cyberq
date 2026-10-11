@@ -25,7 +25,6 @@ class Cook extends Model
     protected $fillable = [
         'guru_id',
         'name',
-        'meat',
         'description',
         'started_at',
         'ended_at',
@@ -42,7 +41,6 @@ class Cook extends Model
             'started_at' => 'datetime',
             'ended_at' => 'datetime',
             'ended_automatically' => 'boolean',
-            'meat' => Meat::class,
         ];
     }
 
@@ -79,7 +77,9 @@ class Cook extends Model
      */
     public function probes(): BelongsToMany
     {
-        return $this->belongsToMany(Probe::class);
+        return $this->belongsToMany(Probe::class)
+            ->using(CookProbe::class)
+            ->withPivot(['meat', 'name']);
     }
 
     /** @return Collection<int, Probe> */
@@ -95,20 +95,39 @@ class Cook extends Model
     }
 
     /**
-     * Sends the pit target, and the food target for every food probe this
-     * cook uses, to its CyberQ.
+     * What a probe is called in this cook: its own name, else its meat, else
+     * the probe's label ("Food 1").
+     */
+    public function probeName(string $identifier): string
+    {
+        $pivot = $this->probes->firstWhere('identifier', $identifier)?->pivot;
+
+        return $pivot?->name ?: $pivot?->meat?->getLabel() ?: Probe::LABELS[$identifier];
+    }
+
+    public function probeMeat(string $identifier): ?Meat
+    {
+        return $this->probes->firstWhere('identifier', $identifier)?->pivot?->meat;
+    }
+
+    /**
+     * Sends the pit target, and each food probe's done temperature, to the
+     * cook's CyberQ. Food probes this cook does not use are left alone.
+     *
+     * @param  array<string, float|null>  $foodTargets  keyed by probe identifier
      *
      * @throws CyberQUnreachable
      */
-    public function sendTargets(?float $pitFahrenheit, ?float $foodFahrenheit): void
+    public function sendTargets(?float $pitFahrenheit, array $foodTargets): void
     {
-        $foodSetPoints = $this->probesInUse()
-            ->reject(fn (Probe $probe) => $probe->identifier === Probe::PIT)
-            ->map(fn (Probe $probe) => Probe::setPointKeyFor($probe->identifier));
+        $foodsInUse = $this->probesInUse()
+            ->pluck('identifier')
+            ->reject(fn (string $identifier) => $identifier === Probe::PIT);
 
-        $targets = collect([Probe::setPointKeyFor(Probe::PIT) => $pitFahrenheit])
-            ->merge($foodSetPoints->mapWithKeys(fn (string $setPoint) => [$setPoint => $foodFahrenheit]))
-            ->reject(fn (?float $fahrenheit) => $fahrenheit === null);
+        $targets = collect([Probe::PIT => $pitFahrenheit])
+            ->merge($foodsInUse->mapWithKeys(fn (string $identifier) => [$identifier => $foodTargets[$identifier] ?? null]))
+            ->reject(fn (?float $fahrenheit) => $fahrenheit === null)
+            ->mapWithKeys(fn (float $fahrenheit, string $identifier) => [Probe::setPointKeyFor($identifier) => $fahrenheit]);
 
         if ($targets->isEmpty()) {
             return;
@@ -117,14 +136,60 @@ class Cook extends Model
         $this->guru->cyberQ()->update($targets->all());
     }
 
-    /** @param list<string> $identifiers */
-    public function useProbes(array $identifiers): void
+    /**
+     * Probes left out of $foods keep what they were already in.
+     *
+     * @param  list<string>  $identifiers
+     * @param  array<string, array{meat?: Meat|string|null, name?: string|null}>  $foods  what each food probe is in, keyed by identifier
+     */
+    public function useProbes(array $identifiers, array $foods = []): void
     {
-        $this->probes()->sync(
-            $this->guru->probes()->whereIn('identifier', array_intersect($identifiers, Probe::TEMPERATURES))->pluck('id')
-        );
+        $probeIds = $this->guru->probes()
+            ->whereIn('identifier', array_intersect($identifiers, Probe::TEMPERATURES))
+            ->pluck('id', 'identifier');
+
+        $current = $this->probes()->get()->keyBy('identifier');
+
+        $this->probes()->sync($probeIds->mapWithKeys(function (int $id, string $identifier) use ($foods, $current) {
+            if (! array_key_exists($identifier, $foods)) {
+                return [$id => [
+                    'meat' => $current->get($identifier)?->pivot->meat?->value,
+                    'name' => $current->get($identifier)?->pivot->name,
+                ]];
+            }
+
+            $name = $foods[$identifier]['name'] ?? null;
+
+            return [$id => [
+                'meat' => self::meatValue($foods[$identifier]['meat'] ?? null),
+                'name' => filled($name) ? trim($name) : null,
+            ]];
+        })->all());
 
         $this->unsetRelation('probes');
+    }
+
+    /**
+     * A name for a cook nobody named, from what is on its probes.
+     *
+     * @param  list<Meat>  $meats
+     */
+    public static function nameFor(array $meats): string
+    {
+        $labels = collect($meats)->map(fn (Meat $meat) => $meat->getLabel())->unique()->values();
+
+        if ($labels->isEmpty()) {
+            return 'Cook on '.now()->format('D j M');
+        }
+
+        return ucfirst(strtolower($labels->join(', ', ' and ')));
+    }
+
+    private static function meatValue(Meat|string|null $meat): ?string
+    {
+        return $meat instanceof Meat ?
+            $meat->value :
+            Meat::tryFrom((string) $meat)?->value;
     }
 
     #[Scope]

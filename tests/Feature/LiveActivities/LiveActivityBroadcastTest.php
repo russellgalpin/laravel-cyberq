@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Meat;
 use App\Models\Cook;
 use App\Models\LiveActivityToken;
 use App\Models\Probe;
@@ -128,4 +129,17 @@ it('gives iOS dates in its own epoch and the time until the food is done', funct
         ->and($state['estimatedDoneAt'])->toBeGreaterThan(now()->getTimestamp() - 978307200)
         ->and($state['pit'])->toBeNull()
         ->and($state['foods'][0]['label'])->toBe('Food 1');
+});
+
+it('gives each food its own name and finish time, so several joints can be told apart', function () {
+    $cook = Cook::factory()->create(['started_at' => now()->subHours(4)]);
+    $cook->useProbes([Probe::FOOD1, Probe::FOOD2], [Probe::FOOD1 => ['meat' => Meat::PulledPork], Probe::FOOD2 => ['meat' => Meat::Brisket, 'name' => 'Flat']]);
+    recordReadings($cook, Probe::FOOD1, collect(range(0, 6))->mapWithKeys(fn ($step) => [200 + $step * 5 => [1500 + $step * 10, 2030]])->all());
+    recordReadings($cook, Probe::FOOD2, collect(range(0, 6))->mapWithKeys(fn ($step) => [200 + $step * 5 => [1500 + $step * 20, 2030]])->all());
+
+    $state = LiveActivityContent::state(new CookSnapshot($cook));
+
+    expect(array_column($state['foods'], 'name'))->toBe(['Pulled pork', 'Flat'])
+        ->and($state['foods'][1]['estimatedDoneAt'])->toBeLessThan($state['foods'][0]['estimatedDoneAt'])
+        ->and($state['estimatedDoneAt'])->toEqual($state['foods'][0]['estimatedDoneAt']);
 });

@@ -45,9 +45,13 @@ class LiveActivityContent
             'pitTarget' => $pit?->target,
             'foods' => $foods->map(fn (ProbeSnapshot $probe) => [
                 'label' => $probe->label,
+                'name' => $probe->name,
                 'temperature' => $probe->temperature,
                 'target' => $probe->target,
                 'done' => $probe->reachedTarget(),
+                'estimatedDoneAt' => $probe->timeToTarget && ! $probe->reachedTarget() ?
+                    self::appleDate(now()->add($probe->timeToTarget)) :
+                    null,
             ])->all(),
             'estimatedDoneAt' => $longestToGo ? self::appleDate(now()->addSeconds((int) $longestToGo)) : null,
             'lastReadingAt' => self::appleDate($snapshot->lastReadingAt()),

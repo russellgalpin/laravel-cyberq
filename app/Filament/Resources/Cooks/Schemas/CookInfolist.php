@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Cooks\Schemas;
 
-use App\Filament\Widgets\ChartPalette;
 use App\Models\Cook;
 use App\Models\Probe;
 use App\Support\CookSummary;
@@ -31,7 +30,9 @@ class CookInfolist
                             ->helperText(fn (Cook $record) => $record->ended_automatically ? 'Ended automatically after the CyberQ stopped reporting.' : null),
                         TextEntry::make('probes_in_use')
                             ->label('Probes in use')
-                            ->state(fn (Cook $record) => $record->probesInUse()->map(fn (Probe $probe) => $probe->label())->all())
+                            ->state(fn (Cook $record) => $record->probesInUse()->map(fn (Probe $probe) => $probe->label() === $record->probeName($probe->identifier) ?
+                                $probe->label() :
+                                "{$probe->label()}: {$record->probeName($probe->identifier)}")->all())
                             ->badge(),
                         TextEntry::make('duration')
                             ->state(fn (Cook $record) => $record->durationForHumans(short: false)),
@@ -70,7 +71,7 @@ class CookInfolist
     private static function foodEntry(string $identifier): TextEntry
     {
         return TextEntry::make(strtolower($identifier))
-            ->label(ChartPalette::PROBE_LABELS[$identifier].' peak')
+            ->label(fn (Cook $record) => "{$record->probeName($identifier)} peak")
             ->state(fn (Cook $record) => self::summary($record)->peakTemperature($identifier))
             ->suffix('°F')
             ->helperText(function (Cook $record) use ($identifier) {

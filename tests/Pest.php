@@ -1,8 +1,10 @@
 <?php
 
 use App\Models\Cook;
+use App\Models\Probe;
 use App\Models\Reading;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)
@@ -47,4 +49,51 @@ function fakeApnsKey(): void
         'services.apns.private_key_path' => $path,
         'services.apns.bundle_id' => 'net.lrhosting.cyberq',
     ]);
+}
+
+/**
+ * Records a food probe (and the pit) cooking the way real joints do: a quick
+ * rise, a stall from 150-170°F, then a slower finish. A speed of 2 is a
+ * joint that cooks twice as fast. Readings are one a minute until the food
+ * reaches $until or $minutes pass.
+ *
+ * @return int minutes the food took to reach $until, or $minutes if it did not
+ */
+function simulateCook(Cook $cook, string $identifier, float $speed = 1.0, float $pit = 250, float $from = 40, float $until = 203, int $minutes = 2000, bool $recordPit = true): int
+{
+    $food = $from;
+    $rows = [];
+    $probes = $cook->guru->probes->pluck('id', 'identifier');
+
+    for ($minute = 0; $minute <= $minutes; $minute++) {
+        $at = $cook->started_at->copy()->addMinutes($minute)->toDateTimeString();
+        $rows[] = ['cook_id' => $cook->id, 'probe_id' => $probes[$identifier], 'temperature' => (int) round($food * 10), 'set_point' => 2030, 'created_at' => $at, 'updated_at' => $at];
+
+        if ($recordPit) {
+            $rows[] = ['cook_id' => $cook->id, 'probe_id' => $probes[Probe::PIT], 'temperature' => (int) round($pit * 10), 'set_point' => (int) round($pit * 10), 'created_at' => $at, 'updated_at' => $at];
+        }
+
+        if ($food >= $until) {
+            break;
+        }
+
+        $food += simulatedRisePerHour($food, $pit) * $speed / 60;
+    }
+
+    foreach (array_chunk($rows, 500) as $chunk) {
+        DB::table('readings')->insert($chunk);
+    }
+
+    return $minute;
+}
+
+function simulatedRisePerHour(float $food, float $pit): float
+{
+    $band = match (true) {
+        $food < 150 => 4.0,
+        $food < 170 => 0.8,
+        default => 2.0,
+    };
+
+    return $band * sqrt(max($pit - $food, 15));
 }

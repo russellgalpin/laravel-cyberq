@@ -5,7 +5,11 @@ namespace App\Support;
 use App\Models\Cook;
 use App\Models\Probe;
 use App\Models\Reading;
+use App\Support\Forecasting\CookingHistory;
+use App\Support\Forecasting\FoodForecast;
+use App\Support\Forecasting\FoodSeries;
 use Carbon\CarbonInterface;
+use Carbon\CarbonInterval;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
@@ -68,14 +72,12 @@ class CookSnapshot
 
         $timeToTarget = $identifier === Probe::PIT || $target === null ?
             null :
-            (new TemperatureForecast($recent->map(fn (Reading $reading) => [
-                'at' => $reading->created_at,
-                'fahrenheit' => $reading->temperature_in_fahrenheit,
-            ])))->timeToReach($target);
+            $this->timeToTarget($identifier, $target, $recent);
 
         return new ProbeSnapshot(
             identifier: $identifier,
             label: Probe::LABELS[$identifier],
+            name: $this->cook->probeName($identifier),
             temperature: $latest->temperature_in_fahrenheit,
             target: $target,
             timeToTarget: $timeToTarget,
@@ -86,6 +88,43 @@ class CookSnapshot
     public function fanOutput(): ?int
     {
         return $this->cook->latestReadingFor(Probe::FAN_OUTPUT)?->temperature;
+    }
+
+    /**
+     * From how past cooks went when there are enough of them, otherwise from
+     * the straight line the last few readings make.
+     *
+     * @param  EloquentCollection<int, Reading>  $recent
+     */
+    private function timeToTarget(string $identifier, float $target, EloquentCollection $recent): ?CarbonInterval
+    {
+        $curve = CookingHistory::load()->curveFor($this->cook->probeMeat($identifier));
+        $series = $curve ? $this->foodSeries($identifier) : null;
+
+        if ($curve && $series && ! $series->isEmpty()) {
+            return (new FoodForecast($curve, $series))->timeToReach($target);
+        }
+
+        return (new TemperatureForecast($recent->map(fn (Reading $reading) => [
+            'at' => $reading->created_at,
+            'fahrenheit' => $reading->temperature_in_fahrenheit,
+        ])))->timeToReach($target);
+    }
+
+    /** The probe's readings since it was last put in (or the cook paused), with the pit's. */
+    private function foodSeries(string $identifier): ?FoodSeries
+    {
+        $readings = $this->cook->readings()
+            ->join('probes', 'probes.id', '=', 'readings.probe_id')
+            ->whereIn('probes.identifier', [$identifier, Probe::PIT])
+            ->toBase()
+            ->get(['probes.identifier', 'readings.temperature', 'readings.created_at'])
+            ->groupBy('identifier')
+            ->map(fn (Collection $readings) => $readings->mapWithKeys(fn (object $reading) => [strtotime($reading->created_at) => $reading->temperature / 10])->all());
+
+        $segments = FoodSeries::segments($readings->get($identifier, []), $readings->get(Probe::PIT, []));
+
+        return $segments === [] ? null : end($segments);
     }
 
     /** @return EloquentCollection<int, Reading> */

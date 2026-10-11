@@ -23,6 +23,7 @@ class CookSnapshotResource extends JsonResource
             'probes' => $snapshot->probes()->map(fn (ProbeSnapshot $probe) => [
                 'identifier' => $probe->identifier,
                 'label' => $probe->label,
+                'name' => $probe->name,
                 'temperature' => $probe->temperature,
                 'target' => $probe->target,
                 'reached_target' => $probe->reachedTarget(),

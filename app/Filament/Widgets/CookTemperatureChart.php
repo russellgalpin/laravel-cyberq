@@ -41,7 +41,7 @@ class CookTemperatureChart extends ApexChartWidget
         $probes = collect(Probe::TEMPERATURES)->filter(fn (string $identifier) => $timeline->hasReadingsFor($identifier));
 
         $temperatureSeries = $probes->map(fn (string $identifier) => [
-            'name' => ChartPalette::PROBE_LABELS[$identifier],
+            'name' => $cook->probeName($identifier),
             'data' => $timeline->temperatures($identifier),
             'color' => ChartPalette::PROBES[$identifier],
             'dash' => 0,
@@ -49,7 +49,7 @@ class CookTemperatureChart extends ApexChartWidget
 
         $targetSeries = $probes
             ->map(fn (string $identifier) => [
-                'name' => ChartPalette::PROBE_LABELS[$identifier].' target',
+                'name' => "{$cook->probeName($identifier)} target",
                 'data' => $timeline->setPoints($identifier),
                 'color' => ChartPalette::PROBES[$identifier],
                 'dash' => 6,

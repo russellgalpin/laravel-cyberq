@@ -58,7 +58,7 @@ class CurrentCookStats extends StatsOverviewWidget
 
     private function temperatureStat(ProbeSnapshot $probe): Stat
     {
-        $stat = Stat::make($probe->label, number_format($probe->temperature, 1).'°F')
+        $stat = Stat::make($probe->name, number_format($probe->temperature, 1).'°F')
             ->chart($probe->recentTemperatures);
 
         if ($probe->target === null) {
