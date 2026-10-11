@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Meat;
 use App\Filament\Resources\Cooks\Pages\CreateCook;
 use App\Filament\Resources\Cooks\Pages\EditCook;
 use App\Filament\Resources\Cooks\Pages\ListCooks;
@@ -12,6 +13,9 @@ use App\Models\Reading;
 use App\Models\User;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\Testing\TestAction;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -46,6 +50,46 @@ it('starts a cook on the CyberQ with the pit and first food probe ticked', funct
 
     expect($cook)->name->toBe('Ribs')->guru_id->toBe($guru->id)
         ->and($cook->probesInUse()->pluck('identifier')->all())->toBe([Probe::PIT, Probe::FOOD1]);
+});
+
+it('fills in a meat\'s name and suggested targets, and sends the targets to the CyberQ', function () {
+    Http::fake();
+    Guru::factory()->withProbes()->create();
+
+    Livewire::test(CreateCook::class)
+        ->fillForm(['meat' => Meat::PulledPork->value])
+        ->assertSchemaStateSet(['name' => 'Pulled pork', 'pit_target' => 250, 'food_target' => 203])
+        ->fillForm(['meat' => Meat::Brisket->value])
+        ->assertSchemaStateSet(['name' => 'Brisket', 'pit_target' => 250, 'food_target' => 203])
+        ->fillForm(['pit_target' => 265, 'started_at' => now()])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    expect(Cook::current())->name->toBe('Brisket')->meat->toBe(Meat::Brisket);
+
+    Http::assertSent(fn (Request $request) => $request['COOK_SET'] == 265 && $request['FOOD1_SET'] == 203);
+});
+
+it('keeps a typed name when a meat is picked', function () {
+    Guru::factory()->withProbes()->create();
+
+    Livewire::test(CreateCook::class)
+        ->fillForm(['name' => 'Smoky Joe\'s shoulder'])
+        ->fillForm(['meat' => Meat::LambShoulder->value])
+        ->assertSchemaStateSet(['name' => 'Smoky Joe\'s shoulder', 'pit_target' => 250, 'food_target' => 200]);
+});
+
+it('warns when the cook starts but the CyberQ does not take the targets', function () {
+    Http::fake(fn () => throw new ConnectionException('timed out'));
+    Guru::factory()->withProbes()->create();
+
+    Livewire::test(CreateCook::class)
+        ->fillForm(['meat' => Meat::WholeChicken->value, 'started_at' => now()])
+        ->call('create')
+        ->assertHasNoFormErrors()
+        ->assertNotified('The cook has started, but the CyberQ did not take the targets');
+
+    expect(Cook::current()->name)->toBe('Whole chicken');
 });
 
 it('starts a cook with whichever probes are in use', function () {

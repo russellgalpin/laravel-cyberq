@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\EndedCooksController;
 use App\Http\Controllers\Api\GurusController;
 use App\Http\Controllers\Api\InstanceController;
 use App\Http\Controllers\Api\LiveActivityTokensController;
+use App\Http\Controllers\Api\MeatsController;
 use App\Http\Controllers\Api\PushDevicesController;
 use App\Http\Controllers\Api\TokensController;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +25,8 @@ Route::middleware('auth:sanctum')->name('api.')->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'show'])->name('dashboard.show');
     Route::get('/gurus', [GurusController::class, 'index'])->name('gurus.index');
+
+    Route::get('/meats', [MeatsController::class, 'index'])->name('meats.index');
 
     Route::apiResource('cooks', CooksController::class);
     Route::post('/cooks/{cook}/end', [EndedCooksController::class, 'store'])->name('cooks.end');

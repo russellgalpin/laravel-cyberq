@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\Meat;
+use App\Services\Guru\CyberQUnreachable;
 use App\Support\LiveActivities\LiveActivityBroadcaster;
 use Carbon\CarbonInterface;
 use Carbon\CarbonInterval;
@@ -23,10 +25,15 @@ class Cook extends Model
     protected $fillable = [
         'guru_id',
         'name',
+        'meat',
         'description',
         'started_at',
         'ended_at',
         'ended_automatically',
+    ];
+
+    protected $attributes = [
+        'ended_automatically' => false,
     ];
 
     protected function casts(): array
@@ -35,6 +42,7 @@ class Cook extends Model
             'started_at' => 'datetime',
             'ended_at' => 'datetime',
             'ended_automatically' => 'boolean',
+            'meat' => Meat::class,
         ];
     }
 
@@ -84,6 +92,29 @@ class Cook extends Model
         return $probes
             ->sortBy(fn (Probe $probe) => array_search($probe->identifier, Probe::TEMPERATURES, true))
             ->values();
+    }
+
+    /**
+     * Sends the pit target, and the food target for every food probe this
+     * cook uses, to its CyberQ.
+     *
+     * @throws CyberQUnreachable
+     */
+    public function sendTargets(?float $pitFahrenheit, ?float $foodFahrenheit): void
+    {
+        $foodSetPoints = $this->probesInUse()
+            ->reject(fn (Probe $probe) => $probe->identifier === Probe::PIT)
+            ->map(fn (Probe $probe) => Probe::setPointKeyFor($probe->identifier));
+
+        $targets = collect([Probe::setPointKeyFor(Probe::PIT) => $pitFahrenheit])
+            ->merge($foodSetPoints->mapWithKeys(fn (string $setPoint) => [$setPoint => $foodFahrenheit]))
+            ->reject(fn (?float $fahrenheit) => $fahrenheit === null);
+
+        if ($targets->isEmpty()) {
+            return;
+        }
+
+        $this->guru->cyberQ()->update($targets->all());
     }
 
     /** @param list<string> $identifiers */

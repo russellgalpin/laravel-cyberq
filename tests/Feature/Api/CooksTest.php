@@ -1,10 +1,14 @@
 <?php
 
+use App\Enums\Meat;
 use App\Models\Cook;
 use App\Models\Guru;
 use App\Models\Probe;
 use App\Models\Reading;
 use App\Models\User;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
@@ -33,6 +37,7 @@ it('starts a cook now with the pit and first food probe unless told otherwise', 
         ->assertCreated()
         ->assertJsonPath('data.name', 'Ribs')
         ->assertJsonPath('data.in_progress', true)
+        ->assertJsonPath('data.ended_automatically', false)
         ->assertJsonPath('data.probes', [Probe::PIT, Probe::FOOD1]);
 
     expect(Cook::current()->started_at->equalTo(now()))->toBeTrue();
@@ -44,6 +49,65 @@ it('starts a cook with the probes chosen in the app', function () {
     $this->postJson('/api/v1/cooks', ['name' => 'Two briskets', 'guru_id' => $guru->id, 'probes' => [Probe::FOOD2, Probe::FOOD1]])
         ->assertCreated()
         ->assertJsonPath('data.probes', [Probe::FOOD1, Probe::FOOD2]);
+});
+
+it('lists the meats a cook can start from, with their suggested temperatures', function () {
+    $this->getJson('/api/v1/meats')
+        ->assertOk()
+        ->assertJsonCount(count(Meat::cases()), 'data')
+        ->assertJsonPath('data.0', ['value' => 'pulled_pork', 'label' => 'Pulled pork', 'pit_target' => 250, 'food_target' => 203]);
+});
+
+it('starts a cook for a meat and sends its targets to the CyberQ', function () {
+    Http::fake();
+    $guru = Guru::factory()->withProbes()->create();
+
+    $this->postJson('/api/v1/cooks', [
+        'name' => 'Brisket',
+        'meat' => 'brisket',
+        'guru_id' => $guru->id,
+        'probes' => [Probe::PIT, Probe::FOOD1, Probe::FOOD3],
+        'pit_target' => 260,
+        'food_target' => 203,
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.meat', 'brisket')
+        ->assertJsonMissingPath('meta.warning');
+
+    expect(Cook::current()->meat)->toBe(Meat::Brisket);
+
+    Http::assertSent(fn (Request $request) => $request->url() === 'http://cyberq.test/'
+        && $request['COOK_SET'] == 260
+        && $request['FOOD1_SET'] == 203
+        && $request['FOOD3_SET'] == 203
+        && ! isset($request['FOOD2_SET']));
+});
+
+it('leaves the CyberQ alone when a cook starts without targets', function () {
+    Http::fake();
+    $guru = Guru::factory()->withProbes()->create();
+
+    $this->postJson('/api/v1/cooks', ['name' => 'Something new', 'guru_id' => $guru->id])->assertCreated();
+
+    Http::assertNothingSent();
+});
+
+it('still starts the cook when the CyberQ does not take the targets', function () {
+    Http::fake(fn () => throw new ConnectionException('timed out'));
+    $guru = Guru::factory()->withProbes()->create();
+
+    $this->postJson('/api/v1/cooks', ['name' => 'Ribs', 'meat' => 'pork_ribs', 'guru_id' => $guru->id, 'pit_target' => 250, 'food_target' => 198])
+        ->assertCreated()
+        ->assertJsonPath('meta.warning', fn (string $warning) => str_contains($warning, 'did not take the targets'));
+
+    expect(Cook::current()->name)->toBe('Ribs');
+});
+
+it('rejects an unknown meat and out of range targets', function () {
+    $guru = Guru::factory()->withProbes()->create();
+
+    $this->postJson('/api/v1/cooks', ['name' => 'Ribs', 'meat' => 'unicorn', 'guru_id' => $guru->id, 'pit_target' => 900, 'food_target' => 10])
+        ->assertJsonValidationErrors(['meat', 'pit_target', 'food_target']);
 });
 
 it('changes the probes during a cook', function () {

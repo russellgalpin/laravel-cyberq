@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Enums\Meat;
 use App\Models\Probe;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -12,6 +13,7 @@ class UpdateCookRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'meat' => ['sometimes', 'nullable', Rule::enum(Meat::class)],
             'description' => ['sometimes', 'nullable', 'string', 'max:255'],
             'started_at' => ['sometimes', 'required', 'date'],
             'probes' => ['sometimes', 'array', 'min:1'],

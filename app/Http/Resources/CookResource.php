@@ -25,6 +25,7 @@ class CookResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'meat' => $this->meat?->value,
             'description' => $this->description,
             'guru_id' => $this->guru_id,
             'started_at' => $this->started_at?->toIso8601String(),
