@@ -64,7 +64,7 @@ class CookResource extends JsonResource
                 ->filter(fn (string $identifier) => $summary->peakTemperature($identifier) !== null)
                 ->map(fn (string $identifier) => [
                     'identifier' => $identifier,
-                    'label' => Probe::LABELS[$identifier],
+                    'label' => $this->probeName($identifier),
                     'peak' => $summary->peakTemperature($identifier),
                     'reached_target_at' => $summary->reachedTargetAt($identifier)?->toIso8601String(),
                 ])

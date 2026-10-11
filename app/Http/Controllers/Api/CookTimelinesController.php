@@ -19,7 +19,7 @@ class CookTimelinesController extends Controller
             ->filter(fn (string $identifier) => $timeline->hasReadingsFor($identifier))
             ->map(fn (string $identifier) => [
                 'identifier' => $identifier,
-                'label' => Probe::LABELS[$identifier],
+                'label' => $cook->probeName($identifier),
                 'temperatures' => self::points($timeline->temperatures($identifier)),
                 'targets' => self::points($timeline->setPoints($identifier)),
             ])
