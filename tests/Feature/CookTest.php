@@ -43,6 +43,71 @@ it('measures how long a cook took', function () {
         ->and($running->duration()->totalMinutes)->toEqual(90);
 });
 
+/** @return array<int, array{0: int, 1: int}> a steady 250°F pit, one reading a minute */
+function steadyPit(int $fromMinute, int $toMinute): array
+{
+    return collect(range($fromMinute, $toMinute))->mapWithKeys(fn (int $minute) => [$minute => [2500 + ($minute % 3) * 10, 2500]])->all();
+}
+
+it('measures a finished cook to its last reading, not to when it was ended', function () {
+    $cook = Cook::factory()->create(['started_at' => now()->startOfMinute()->subDay()]);
+    recordReadings($cook, Probe::PIT, steadyPit(0, 300));
+    recordReadings($cook, Probe::FOOD1, [0 => [400, 2030], 300 => [2030, 2030]]);
+
+    $cook->end();
+
+    expect($cook->cooked_until->equalTo($cook->started_at->copy()->addMinutes(300)))->toBeTrue()
+        ->and($cook->duration()->totalMinutes)->toEqual(300)
+        ->and($cook->durationForHumans())->toBe('5h');
+});
+
+it('stops measuring a cook when the CyberQ went quiet, even if it came back on later', function () {
+    $cook = Cook::factory()->create(['started_at' => now()->startOfMinute()->subDays(3)]);
+    recordReadings($cook, Probe::PIT, steadyPit(0, 240) + steadyPit(2000, 2060));
+
+    $cook->end();
+
+    expect($cook->duration()->totalMinutes)->toEqual(240);
+});
+
+it('leaves out the drop in the pit as the food comes out', function () {
+    $cook = Cook::factory()->create(['started_at' => now()->startOfMinute()->subDay()]);
+    recordReadings($cook, Probe::PIT, steadyPit(0, 180) + [181 => [2200, 2500], 182 => [1700, 2500], 183 => [1400, 2500]]);
+
+    $cook->end();
+
+    expect($cook->duration()->totalMinutes)->toEqual(180);
+});
+
+it('keeps a brief dip in the pit that it recovered from', function () {
+    $cook = Cook::factory()->create(['started_at' => now()->startOfMinute()->subDay()]);
+    recordReadings($cook, Probe::PIT, steadyPit(0, 180) + [181 => [2000, 2500]] + steadyPit(182, 190));
+
+    $cook->end();
+
+    expect($cook->duration()->totalMinutes)->toEqual(190);
+});
+
+it('measures a finished cook without readings to when it was ended', function () {
+    $cook = Cook::factory()->create(['started_at' => now()->subHours(6)]);
+
+    $cook->end(now()->subHours(2));
+
+    expect($cook->cooked_until)->toBeNull()
+        ->and($cook->duration()->totalHours)->toEqual(4);
+});
+
+it('forgets when a cook stopped cooking once it is resumed', function () {
+    $cook = Cook::factory()->create(['started_at' => now()->startOfMinute()->subDay()]);
+    recordReadings($cook, Probe::PIT, steadyPit(0, 60));
+    $cook->end();
+
+    $cook->update(['ended_at' => null]);
+
+    expect($cook->refresh()->cooked_until)->toBeNull()
+        ->and($cook->in_progress)->toBeTrue();
+});
+
 it('ends now', function () {
     $this->freezeSecond();
     $cook = Cook::factory()->create();

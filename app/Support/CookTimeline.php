@@ -21,6 +21,14 @@ class CookTimeline
      */
     public const int COOK_OVER_AFTER_GAP_MINUTES = 120;
 
+    /**
+     * When the food comes out the lid is open and the probes are pulled, so the
+     * last few readings drop well below the ones before them.
+     */
+    public const float COOLING_DROP_FAHRENHEIT = 15.0;
+
+    public const int COOLING_REFERENCE_READINGS = 30;
+
     /** @var Collection<string, Collection<int, object>>|null */
     private ?Collection $readingsByIdentifier = null;
 
@@ -55,7 +63,7 @@ class CookTimeline
     public function temperaturesByElapsedHours(string $identifier): array
     {
         $startedAt = $this->cook->started_at->getTimestampMs();
-        $activeUntil = $this->activeUntil($identifier)?->getTimestampMs();
+        $activeUntil = ($this->cook->cooked_until ?? $this->activeUntil($identifier))?->getTimestampMs();
 
         return collect($this->temperatures($identifier))
             ->filter(fn (array $point) => $activeUntil === null || $point[0] <= $activeUntil)
@@ -81,6 +89,67 @@ class CookTimeline
         }
 
         return $previous;
+    }
+
+    /**
+     * When the cooking really stopped: the last pit reading (or food reading,
+     * without a pit) before the CyberQ went quiet, leaving out the drop as the
+     * food comes out. A cook left running after the CyberQ was switched off
+     * does not count that time.
+     */
+    public function cookedUntil(): ?CarbonInterface
+    {
+        $identifier = collect(Probe::TEMPERATURES)->first(fn (string $identifier) => $this->hasReadingsFor($identifier));
+
+        if (! $identifier) {
+            return null;
+        }
+
+        $temperatures = [];
+        $times = [];
+        $previous = null;
+
+        foreach ($this->readings($identifier) as $reading) {
+            $at = Carbon::parse($reading->created_at);
+
+            if ($at->lessThan($this->cook->started_at)) {
+                continue;
+            }
+
+            if ($this->cook->ended_at && $at->greaterThan($this->cook->ended_at)) {
+                break;
+            }
+
+            if ($previous && $previous->diffInMinutes($at) > self::COOK_OVER_AFTER_GAP_MINUTES) {
+                break;
+            }
+
+            $temperatures[] = $reading->temperature / 10;
+            $times[] = $at;
+            $previous = $at;
+        }
+
+        $last = $this->lastBeforeCooling($temperatures);
+
+        return $last === null ? null : $times[$last];
+    }
+
+    /** @param list<float> $temperatures */
+    private function lastBeforeCooling(array $temperatures): ?int
+    {
+        $last = count($temperatures) - 1;
+
+        while ($last > 0) {
+            $before = array_slice($temperatures, max(0, $last - self::COOLING_REFERENCE_READINGS), min($last, self::COOLING_REFERENCE_READINGS));
+
+            if ($temperatures[$last] >= collect($before)->median() - self::COOLING_DROP_FAHRENHEIT) {
+                break;
+            }
+
+            $last--;
+        }
+
+        return $last < 0 ? null : $last;
     }
 
     public function hasReadingsFor(string $identifier): bool

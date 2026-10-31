@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Meat;
 use App\Services\Guru\CyberQUnreachable;
+use App\Support\CookTimeline;
 use App\Support\LiveActivities\LiveActivityBroadcaster;
 use Carbon\CarbonInterface;
 use Carbon\CarbonInterval;
@@ -29,6 +30,7 @@ class Cook extends Model
         'started_at',
         'ended_at',
         'ended_automatically',
+        'cooked_until',
     ];
 
     protected $attributes = [
@@ -40,6 +42,7 @@ class Cook extends Model
         return [
             'started_at' => 'datetime',
             'ended_at' => 'datetime',
+            'cooked_until' => 'datetime',
             'ended_automatically' => 'boolean',
         ];
     }
@@ -55,7 +58,13 @@ class Cook extends Model
         });
 
         static::updated(function (Cook $cook) {
-            if ($cook->wasChanged('ended_at') && ! $cook->in_progress) {
+            if (! $cook->wasChanged('ended_at')) {
+                return;
+            }
+
+            $cook->recordCookedUntil();
+
+            if (! $cook->in_progress) {
                 app(LiveActivityBroadcaster::class)->end($cook);
             }
         });
@@ -220,6 +229,20 @@ class Cook extends Model
         });
     }
 
+    /** Works out when a finished cook really stopped cooking, from its readings. */
+    public function recordCookedUntil(): void
+    {
+        $cookedUntil = $this->ended_at === null || $this->ended_at->isFuture() ?
+            null :
+            (new CookTimeline($this))->cookedUntil();
+
+        $this->forceFill(['cooked_until' => $cookedUntil])->saveQuietly();
+    }
+
+    /**
+     * A finished cook lasts until its last reading, so a cook left running
+     * after the CyberQ was switched off does not count that time.
+     */
     public function duration(): ?CarbonInterval
     {
         if (! $this->started_at) {
@@ -228,7 +251,7 @@ class Cook extends Model
 
         $end = $this->in_progress ?
             now() :
-            $this->ended_at;
+            $this->cooked_until ?? $this->ended_at;
 
         return $this->started_at->diffAsCarbonInterval($end);
     }

@@ -10,16 +10,20 @@ use Illuminate\Support\Collection;
 
 /**
  * Headline numbers for a cook, worked out from its full-resolution readings.
+ * A finished cook only counts readings up to when the cooking stopped.
  */
 class CookSummary
 {
     public const float PIT_TOLERANCE_FAHRENHEIT = 15.0;
 
-    public function __construct(private readonly CookTimeline $timeline) {}
+    public function __construct(
+        private readonly CookTimeline $timeline,
+        private readonly ?CarbonInterface $cookedUntil = null,
+    ) {}
 
     public static function for(Cook $cook): self
     {
-        return new self(new CookTimeline($cook));
+        return new self(new CookTimeline($cook), $cook->in_progress ? null : $cook->cooked_until);
     }
 
     public function averagePit(): ?float
@@ -44,7 +48,7 @@ class CookSummary
 
     public function averageFanOutput(): ?float
     {
-        $values = $this->timeline->readings(Probe::FAN_OUTPUT)->pluck('temperature');
+        $values = $this->readings(Probe::FAN_OUTPUT)->pluck('temperature');
 
         return $values->isEmpty() ? null : round($values->avg(), 1);
     }
@@ -54,7 +58,7 @@ class CookSummary
      */
     public function pitStability(): ?float
     {
-        $readingsWithTarget = $this->timeline->readings(Probe::PIT)
+        $readingsWithTarget = $this->readings(Probe::PIT)
             ->filter(fn (object $reading) => $reading->set_point !== null);
 
         if ($readingsWithTarget->isEmpty()) {
@@ -70,16 +74,28 @@ class CookSummary
 
     public function reachedTargetAt(string $identifier): ?CarbonInterface
     {
-        $reading = $this->timeline->readings($identifier)->first(
+        $reading = $this->readings($identifier)->first(
             fn (object $reading) => $reading->set_point !== null && $reading->temperature >= $reading->set_point
         );
 
         return $reading ? Carbon::parse($reading->created_at) : null;
     }
 
+    /** @return Collection<int, object> */
+    private function readings(string $identifier): Collection
+    {
+        if (! $this->cookedUntil) {
+            return $this->timeline->readings($identifier);
+        }
+
+        return $this->timeline->readings($identifier)
+            ->filter(fn (object $reading) => Carbon::parse($reading->created_at)->lessThanOrEqualTo($this->cookedUntil))
+            ->values();
+    }
+
     private function stat(string $identifier, callable $calculate): ?float
     {
-        $values = $this->timeline->readings($identifier)->map(fn (object $reading) => $reading->temperature / 10);
+        $values = $this->readings($identifier)->map(fn (object $reading) => $reading->temperature / 10);
 
         return $values->isEmpty() ? null : round($calculate($values), 1);
     }
