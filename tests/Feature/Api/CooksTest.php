@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\JointSize;
 use App\Enums\Meat;
 use App\Models\Cook;
 use App\Models\Guru;
@@ -66,7 +67,7 @@ it('starts a cook with a different meat on each food probe, and sends each one\'
         'guru_id' => $guru->id,
         'probes' => [
             Probe::PIT,
-            ['identifier' => Probe::FOOD1, 'meat' => 'pulled_pork', 'target' => 203],
+            ['identifier' => Probe::FOOD1, 'meat' => 'pulled_pork', 'size' => 'large', 'target' => 203],
             ['identifier' => Probe::FOOD3, 'meat' => 'brisket', 'name' => 'Point end', 'target' => 198],
         ],
         'pit_target' => 260,
@@ -74,11 +75,13 @@ it('starts a cook with a different meat on each food probe, and sends each one\'
         ->assertCreated()
         ->assertJsonPath('data.name', 'Pulled pork and brisket')
         ->assertJsonPath('data.probes', [Probe::PIT, Probe::FOOD1, Probe::FOOD3])
-        ->assertJsonPath('data.foods.0', ['identifier' => Probe::FOOD1, 'label' => 'Food 1', 'meat' => 'pulled_pork', 'meat_label' => 'Pulled pork', 'name' => null, 'display_name' => 'Pulled pork'])
+        ->assertJsonPath('data.foods.0', ['identifier' => Probe::FOOD1, 'label' => 'Food 1', 'meat' => 'pulled_pork', 'meat_label' => 'Pulled pork', 'size' => 'large', 'name' => null, 'display_name' => 'Pulled pork'])
         ->assertJsonPath('data.foods.1.display_name', 'Point end')
         ->assertJsonMissingPath('meta.warning');
 
-    expect(Cook::current()->probeMeat(Probe::FOOD3))->toBe(Meat::Brisket);
+    expect(Cook::current()->probeMeat(Probe::FOOD3))->toBe(Meat::Brisket)
+        ->and(Cook::current()->probeSize(Probe::FOOD1))->toBe(JointSize::Large)
+        ->and(Cook::current()->probeSize(Probe::FOOD3))->toBeNull();
 
     Http::assertSent(fn (Request $request) => $request->url() === 'http://cyberq.test/'
         && $request['COOK_SET'] == 260
@@ -117,11 +120,11 @@ it('still starts the cook when the CyberQ does not take the targets', function (
     expect(Cook::current()->name)->toBe('Ribs');
 });
 
-it('rejects an unknown meat and out of range targets', function () {
+it('rejects an unknown meat or size and out of range targets', function () {
     $guru = Guru::factory()->withProbes()->create();
 
-    $this->postJson('/api/v1/cooks', ['name' => 'Ribs', 'guru_id' => $guru->id, 'probes' => [['identifier' => Probe::FOOD1, 'meat' => 'unicorn', 'target' => 600]], 'pit_target' => 900, 'food_target' => 10])
-        ->assertJsonValidationErrors(['probes.0.meat', 'probes.0.target', 'pit_target', 'food_target']);
+    $this->postJson('/api/v1/cooks', ['name' => 'Ribs', 'guru_id' => $guru->id, 'probes' => [['identifier' => Probe::FOOD1, 'meat' => 'unicorn', 'size' => 'huge', 'target' => 600]], 'pit_target' => 900, 'food_target' => 10])
+        ->assertJsonValidationErrors(['probes.0.meat', 'probes.0.size', 'probes.0.target', 'pit_target', 'food_target']);
 });
 
 it('changes the probes during a cook', function () {
@@ -140,13 +143,15 @@ it('changes what a food probe is in, and keeps it when an older app edits the pr
     $cook = Cook::factory()->create();
     $cook->useProbes([Probe::PIT, Probe::FOOD1]);
 
-    $this->patchJson("/api/v1/cooks/{$cook->id}", ['probes' => [Probe::PIT, ['identifier' => Probe::FOOD1, 'meat' => 'lamb_shoulder', 'name' => 'Leg']]])
+    $this->patchJson("/api/v1/cooks/{$cook->id}", ['probes' => [Probe::PIT, ['identifier' => Probe::FOOD1, 'meat' => 'lamb_shoulder', 'size' => 'medium', 'name' => 'Leg']]])
         ->assertOk()
         ->assertJsonPath('data.foods.0.meat', 'lamb_shoulder')
+        ->assertJsonPath('data.foods.0.size', 'medium')
         ->assertJsonPath('data.foods.0.display_name', 'Leg');
 
     $this->patchJson("/api/v1/cooks/{$cook->id}", ['probes' => [Probe::PIT, Probe::FOOD1, Probe::FOOD2]])
         ->assertJsonPath('data.foods.0.meat', 'lamb_shoulder')
+        ->assertJsonPath('data.foods.0.size', 'medium')
         ->assertJsonPath('data.foods.1.meat', null);
 });
 

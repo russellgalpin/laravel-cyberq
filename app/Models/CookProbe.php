@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Enums\JointSize;
 use App\Enums\Meat;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
 /**
  * A probe in use for a cook. Food probes can say what they are in: a meat,
- * a name (like "Big shoulder"), or both.
+ * how big the joint is, a name (like "Big shoulder"), or any of them.
  */
 class CookProbe extends Pivot
 {
@@ -19,6 +20,7 @@ class CookProbe extends Pivot
     {
         return [
             'meat' => Meat::class,
+            'size' => JointSize::class,
         ];
     }
 }

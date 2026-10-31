@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\JointSize;
 use App\Enums\Meat;
 use App\Services\Guru\CyberQUnreachable;
 use App\Support\CookTimeline;
@@ -88,7 +89,7 @@ class Cook extends Model
     {
         return $this->belongsToMany(Probe::class)
             ->using(CookProbe::class)
-            ->withPivot(['meat', 'name']);
+            ->withPivot(['meat', 'size', 'name']);
     }
 
     /** @return Collection<int, Probe> */
@@ -117,6 +118,11 @@ class Cook extends Model
     public function probeMeat(string $identifier): ?Meat
     {
         return $this->probes->firstWhere('identifier', $identifier)?->pivot?->meat;
+    }
+
+    public function probeSize(string $identifier): ?JointSize
+    {
+        return $this->probes->firstWhere('identifier', $identifier)?->pivot?->size;
     }
 
     /**
@@ -149,7 +155,7 @@ class Cook extends Model
      * Probes left out of $foods keep what they were already in.
      *
      * @param  list<string>  $identifiers
-     * @param  array<string, array{meat?: Meat|string|null, name?: string|null}>  $foods  what each food probe is in, keyed by identifier
+     * @param  array<string, array{meat?: Meat|string|null, size?: JointSize|string|null, name?: string|null}>  $foods  what each food probe is in, keyed by identifier
      */
     public function useProbes(array $identifiers, array $foods = []): void
     {
@@ -163,14 +169,18 @@ class Cook extends Model
             if (! array_key_exists($identifier, $foods)) {
                 return [$id => [
                     'meat' => $current->get($identifier)?->pivot->meat?->value,
+                    'size' => $current->get($identifier)?->pivot->size?->value,
                     'name' => $current->get($identifier)?->pivot->name,
                 ]];
             }
 
             $name = $foods[$identifier]['name'] ?? null;
 
+            $size = $foods[$identifier]['size'] ?? null;
+
             return [$id => [
                 'meat' => self::meatValue($foods[$identifier]['meat'] ?? null),
+                'size' => $size instanceof JointSize ? $size->value : JointSize::tryFrom((string) $size)?->value,
                 'name' => filled($name) ? trim($name) : null,
             ]];
         })->all());

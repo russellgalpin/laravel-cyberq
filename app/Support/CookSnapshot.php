@@ -98,7 +98,7 @@ class CookSnapshot
      */
     private function timeToTarget(string $identifier, float $target, EloquentCollection $recent): ?CarbonInterval
     {
-        $curve = CookingHistory::load()->curveFor($this->cook->probeMeat($identifier));
+        $curve = CookingHistory::load()->curveFor($this->cook->probeMeat($identifier), $this->cook->probeSize($identifier));
         $series = $curve ? $this->foodSeries($identifier) : null;
 
         if ($curve && $series && ! $series->isEmpty()) {

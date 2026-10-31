@@ -103,6 +103,25 @@ readonly class CookingCurve
         return new self($bands);
     }
 
+    public function scaledBy(float $factor): self
+    {
+        return new self(array_map(fn (float $value) => $value * $factor, $this->bands));
+    }
+
+    /** How much faster this curve is than another, as the mean log ratio over the bands both have. */
+    public function logRatioTo(self $other): float
+    {
+        $logRatios = [];
+
+        foreach ($this->bands as $band => $value) {
+            if (isset($other->bands[$band])) {
+                $logRatios[] = log($value / $other->bands[$band]);
+            }
+        }
+
+        return $logRatios === [] ? 0.0 : array_sum($logRatios) / count($logRatios);
+    }
+
     public function risePerHour(float $food, float $pit, float $speed = 1.0): float
     {
         return $this->valueAt($food) * $speed * max($pit - $food, self::MINIMUM_PIT_GAP) ** self::PIT_EXPONENT;

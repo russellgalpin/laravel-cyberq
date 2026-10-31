@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Enums\JointSize;
 use App\Enums\Meat;
 use App\Models\Probe;
 use App\Support\ControllerSettings;
@@ -10,7 +11,7 @@ use Illuminate\Validation\Rule;
 /**
  * Probes can be sent as identifiers (["COOK_TEMP", "FOOD1_TEMP"]) or, to say
  * what each food probe is in, as objects:
- * [{"identifier": "FOOD1_TEMP", "meat": "pulled_pork", "name": "Big one", "target": 203}].
+ * [{"identifier": "FOOD1_TEMP", "meat": "pulled_pork", "size": "large", "name": "Big one", "target": 203}].
  */
 trait ChoosesProbes
 {
@@ -36,6 +37,7 @@ trait ChoosesProbes
             'probes.*' => ['array'],
             'probes.*.identifier' => ['required', 'string', 'distinct', Rule::in(Probe::TEMPERATURES)],
             'probes.*.meat' => ['nullable', Rule::enum(Meat::class)],
+            'probes.*.size' => ['nullable', Rule::enum(JointSize::class)],
             'probes.*.name' => ['nullable', 'string', 'max:60'],
             'probes.*.target' => self::temperatureRule(),
         ];
@@ -50,16 +52,17 @@ trait ChoosesProbes
     }
 
     /**
-     * What each food probe is in, for the probes sent with a meat or name.
+     * What each food probe is in, for the probes sent with a meat, size or name.
      *
-     * @return array<string, array{meat: ?string, name: ?string}>
+     * @return array<string, array{meat: ?string, size: ?string, name: ?string}>
      */
     public function foods(): array
     {
         return collect($this->validated('probes', []))
-            ->filter(fn (array $probe) => array_key_exists('meat', $probe) || array_key_exists('name', $probe))
+            ->filter(fn (array $probe) => array_key_exists('meat', $probe) || array_key_exists('size', $probe) || array_key_exists('name', $probe))
             ->mapWithKeys(fn (array $probe) => [$probe['identifier'] => [
                 'meat' => $probe['meat'] ?? null,
+                'size' => $probe['size'] ?? null,
                 'name' => $probe['name'] ?? null,
             ]])
             ->all();

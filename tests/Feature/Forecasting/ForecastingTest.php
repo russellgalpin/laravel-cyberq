@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\JointSize;
 use App\Enums\Meat;
 use App\Models\Cook;
 use App\Models\Guru;
@@ -15,10 +16,10 @@ beforeEach(function () {
     $this->guru = Guru::factory()->withProbes()->create();
 });
 
-function finishedCook(Guru $guru, Meat $meat, float $speed = 1.0, float $pit = 250, string $identifier = Probe::FOOD1): Cook
+function finishedCook(Guru $guru, Meat $meat, float $speed = 1.0, float $pit = 250, string $identifier = Probe::FOOD1, ?JointSize $size = null): Cook
 {
     $cook = Cook::factory()->for($guru)->create(['started_at' => now()->subDays(10 + Cook::count()), 'ended_at' => now()->subDays(5)]);
-    $cook->useProbes([Probe::PIT, $identifier], [$identifier => ['meat' => $meat]]);
+    $cook->useProbes([Probe::PIT, $identifier], [$identifier => ['meat' => $meat, 'size' => $size]]);
     simulateCook($cook, $identifier, speed: $speed, pit: $pit);
 
     return $cook;
@@ -117,6 +118,47 @@ it('leans on a meat\'s own cooks more the more of them there are', function () {
         ->and($porkWithOneMoreCook)->toBeLessThan($pork)
         ->and($history->cookCount())->toBe(3)
         ->and($history->cookCount(Meat::PulledPork))->toBe(2);
+});
+
+it('learns how much slower large joints cook than small ones of the same meat', function () {
+    finishedCook($this->guru, Meat::PulledPork, speed: 1.6, size: JointSize::Small);
+    finishedCook($this->guru, Meat::PulledPork, speed: 0.4, size: JointSize::Large);
+    finishedCook($this->guru, Meat::LambShoulder, speed: 1.0, size: JointSize::Medium);
+
+    $history = CookingHistory::load();
+    $factors = $history->sizeFactors();
+
+    $small = $history->curveFor(Meat::PulledPork, JointSize::Small)->hoursToReach(40, 203, 250);
+    $medium = $history->curveFor(Meat::PulledPork, JointSize::Medium)->hoursToReach(40, 203, 250);
+    $large = $history->curveFor(Meat::PulledPork, JointSize::Large)->hoursToReach(40, 203, 250);
+
+    expect($factors[JointSize::Large->value])->toBeLessThan(1)
+        ->and($factors[JointSize::Small->value] * $factors[JointSize::Large->value])->toEqualWithDelta(1, 0.001)
+        ->and($large)->toBeGreaterThan($medium * 1.5)
+        ->and($small)->toBeLessThan($medium / 1.5)
+        ->and($history->curveFor(Meat::PulledPork)->hoursToReach(40, 203, 250))->toEqualWithDelta($medium, 0.001);
+});
+
+it('leaves sizes alone until a meat has been cooked both small and large', function () {
+    finishedCook($this->guru, Meat::Brisket, speed: 0.5, size: JointSize::Large);
+    finishedCook($this->guru, Meat::Brisket, speed: 0.5, size: JointSize::Large);
+
+    $history = CookingHistory::load();
+
+    expect($history->sizeFactors())->toBe([])
+        ->and($history->curveFor(Meat::Brisket, JointSize::Large)->hoursToReach(40, 203, 250))
+        ->toEqualWithDelta($history->curveFor(Meat::Brisket)->hoursToReach(40, 203, 250), 0.001);
+});
+
+it('relearns when a finished cook\'s size changes', function () {
+    finishedCook($this->guru, Meat::PulledPork, speed: 1.6, size: JointSize::Small);
+    $cook = finishedCook($this->guru, Meat::PulledPork, speed: 0.4);
+
+    expect(CookingHistory::load()->sizeFactors())->toBe([]);
+
+    $cook->useProbes([Probe::PIT, Probe::FOOD1], [Probe::FOOD1 => ['meat' => Meat::PulledPork, 'size' => JointSize::Large]]);
+
+    expect(CookingHistory::load()->sizeFactors())->not->toBe([]);
 });
 
 it('only learns from finished cooks with readings near done', function () {

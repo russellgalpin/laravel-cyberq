@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Cooks\Schemas;
 
+use App\Enums\JointSize;
 use App\Enums\Meat;
 use App\Filament\Actions\SetTargetsAction;
 use App\Models\Cook;
@@ -92,6 +93,7 @@ class CookForm
             ->map(fn (string $identifier) => [
                 'in_use' => $inUse->has($identifier),
                 'meat' => $inUse->get($identifier)?->pivot?->meat?->value,
+                'size' => $inUse->get($identifier)?->pivot?->size?->value,
                 'name' => $inUse->get($identifier)?->pivot?->name,
             ])
             ->all();
@@ -101,7 +103,7 @@ class CookForm
      * @param  array<string, mixed>  $data
      * @return array{
      *     identifiers: list<string>,
-     *     foods: array<string, array{meat: ?string, name: ?string}>,
+     *     foods: array<string, array{meat: ?string, size: ?string, name: ?string}>,
      *     pitTarget: ?float,
      *     foodTargets: array<string, ?float>
      * }
@@ -115,6 +117,7 @@ class CookForm
             'identifiers' => $inUse->values()->all(),
             'foods' => $foods->mapWithKeys(fn (string $identifier, string $field) => [$identifier => [
                 'meat' => $data[$field]['meat'] ?? null,
+                'size' => $data[$field]['size'] ?? null,
                 'name' => $data[$field]['name'] ?? null,
             ]])->all(),
             'pitTarget' => self::fahrenheit($data['pit']['target'] ?? null),
@@ -180,6 +183,11 @@ class CookForm
                             ->placeholder('Other')
                             ->live()
                             ->afterStateUpdated(fn (Get $get, Set $set, Meat|string|null $state, Meat|string|null $old) => self::useMeat($field, $get, $set, $state, $old)),
+                        Select::make("{$field}.size")
+                            ->label('Size')
+                            ->options(JointSize::class)
+                            ->placeholder('Not set')
+                            ->helperText('Helps estimate how long it will take.'),
                         TextInput::make("{$field}.name")
                             ->label('Name')
                             ->placeholder(fn (Get $get) => self::meat($get("{$field}.meat"))?->getLabel() ?? 'e.g. Big shoulder')

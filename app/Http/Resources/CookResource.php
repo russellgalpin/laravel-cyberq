@@ -39,6 +39,7 @@ class CookResource extends JsonResource
                     'label' => $probe->label(),
                     'meat' => $probe->pivot?->meat?->value,
                     'meat_label' => $probe->pivot?->meat?->getLabel(),
+                    'size' => $probe->pivot?->size?->value,
                     'name' => $probe->pivot?->name,
                     'display_name' => $this->probeName($probe->identifier),
                 ])
