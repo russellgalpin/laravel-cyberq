@@ -29,6 +29,14 @@ class CookTimeline
 
     public const int COOLING_REFERENCE_READINGS = 30;
 
+    /**
+     * The logger sometimes misses readings for hours mid-cook. A pit still this
+     * hot either side of the gap means the cook carried on.
+     */
+    public const float STILL_COOKING_FAHRENHEIT = 150.0;
+
+    public const int LONGEST_MISSED_READINGS_HOURS = 12;
+
     /** @var Collection<string, Collection<int, object>>|null */
     private ?Collection $readingsByIdentifier = null;
 
@@ -93,8 +101,8 @@ class CookTimeline
 
     /**
      * When the cooking really stopped: the last pit reading (or food reading,
-     * without a pit) before the CyberQ went quiet, leaving out the drop as the
-     * food comes out. A cook left running after the CyberQ was switched off
+     * without a pit) before the CyberQ was switched off, leaving out the drop
+     * as the food comes out. A cook left running after the CyberQ was switched off
      * does not count that time.
      */
     public function cookedUntil(): ?CarbonInterface
@@ -107,10 +115,10 @@ class CookTimeline
 
         $temperatures = [];
         $times = [];
-        $previous = null;
 
         foreach ($this->readings($identifier) as $reading) {
             $at = Carbon::parse($reading->created_at);
+            $temperature = $reading->temperature / 10;
 
             if ($at->lessThan($this->cook->started_at)) {
                 continue;
@@ -120,18 +128,32 @@ class CookTimeline
                 break;
             }
 
-            if ($previous && $previous->diffInMinutes($at) > self::COOK_OVER_AFTER_GAP_MINUTES) {
+            if ($times && $this->switchedOffBetween(end($times), end($temperatures), $at, $temperature)) {
                 break;
             }
 
-            $temperatures[] = $reading->temperature / 10;
+            $temperatures[] = $temperature;
             $times[] = $at;
-            $previous = $at;
         }
 
         $last = $this->lastBeforeCooling($temperatures);
 
         return $last === null ? null : $times[$last];
+    }
+
+    private function switchedOffBetween(CarbonInterface $before, float $temperatureBefore, CarbonInterface $after, float $temperatureAfter): bool
+    {
+        $minutes = $before->diffInMinutes($after);
+
+        if ($minutes <= self::COOK_OVER_AFTER_GAP_MINUTES) {
+            return false;
+        }
+
+        if ($minutes > self::LONGEST_MISSED_READINGS_HOURS * 60) {
+            return true;
+        }
+
+        return $temperatureBefore < self::STILL_COOKING_FAHRENHEIT || $temperatureAfter < self::STILL_COOKING_FAHRENHEIT;
     }
 
     /** @param list<float> $temperatures */

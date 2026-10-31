@@ -61,13 +61,31 @@ it('measures a finished cook to its last reading, not to when it was ended', fun
         ->and($cook->durationForHumans())->toBe('5h');
 });
 
-it('stops measuring a cook when the CyberQ went quiet, even if it came back on later', function () {
+it('stops measuring a cook when the CyberQ was switched off, even if it came back on later', function () {
     $cook = Cook::factory()->create(['started_at' => now()->startOfMinute()->subDays(3)]);
     recordReadings($cook, Probe::PIT, steadyPit(0, 240) + steadyPit(2000, 2060));
 
     $cook->end();
 
     expect($cook->duration()->totalMinutes)->toEqual(240);
+});
+
+it('stops measuring a cook when the pit came back cold after a gap', function () {
+    $cook = Cook::factory()->create(['started_at' => now()->startOfMinute()->subDay()]);
+    recordReadings($cook, Probe::PIT, steadyPit(0, 240) + [400 => [900, 2500]] + steadyPit(401, 500));
+
+    $cook->end();
+
+    expect($cook->duration()->totalMinutes)->toEqual(240);
+});
+
+it('carries on measuring through readings missed while the pit stayed hot', function () {
+    $cook = Cook::factory()->create(['started_at' => now()->startOfMinute()->subDay()]);
+    recordReadings($cook, Probe::PIT, steadyPit(0, 120) + steadyPit(600, 700));
+
+    $cook->end();
+
+    expect($cook->duration()->totalMinutes)->toEqual(700);
 });
 
 it('leaves out the drop in the pit as the food comes out', function () {
