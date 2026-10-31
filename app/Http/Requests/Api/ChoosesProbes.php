@@ -53,8 +53,9 @@ trait ChoosesProbes
 
     /**
      * What each food probe is in, for the probes sent with a meat, size or name.
+     * Older apps do not send a size, so it is only included when sent.
      *
-     * @return array<string, array{meat: ?string, size: ?string, name: ?string}>
+     * @return array<string, array{meat: ?string, size?: ?string, name: ?string}>
      */
     public function foods(): array
     {
@@ -62,8 +63,8 @@ trait ChoosesProbes
             ->filter(fn (array $probe) => array_key_exists('meat', $probe) || array_key_exists('size', $probe) || array_key_exists('name', $probe))
             ->mapWithKeys(fn (array $probe) => [$probe['identifier'] => [
                 'meat' => $probe['meat'] ?? null,
-                'size' => $probe['size'] ?? null,
                 'name' => $probe['name'] ?? null,
+                ...array_key_exists('size', $probe) ? ['size' => $probe['size']] : [],
             ]])
             ->all();
     }

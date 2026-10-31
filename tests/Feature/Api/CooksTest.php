@@ -155,6 +155,16 @@ it('changes what a food probe is in, and keeps it when an older app edits the pr
         ->assertJsonPath('data.foods.1.meat', null);
 });
 
+it('keeps a food\'s size when an older app changes its meat', function () {
+    $cook = Cook::factory()->create();
+    $cook->useProbes([Probe::PIT, Probe::FOOD1], [Probe::FOOD1 => ['meat' => 'pulled_pork', 'size' => 'large']]);
+
+    $this->patchJson("/api/v1/cooks/{$cook->id}", ['probes' => [Probe::PIT, ['identifier' => Probe::FOOD1, 'meat' => 'brisket', 'name' => null]]])
+        ->assertOk()
+        ->assertJsonPath('data.foods.0.meat', 'brisket')
+        ->assertJsonPath('data.foods.0.size', 'large');
+});
+
 it('only accepts real probes, and at least one', function () {
     $guru = Guru::factory()->withProbes()->create();
 

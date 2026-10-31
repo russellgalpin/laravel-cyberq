@@ -152,7 +152,8 @@ class Cook extends Model
     }
 
     /**
-     * Probes left out of $foods keep what they were already in.
+     * Probes left out of $foods keep what they were already in, and ones
+     * without a size keep their size.
      *
      * @param  list<string>  $identifiers
      * @param  array<string, array{meat?: Meat|string|null, size?: JointSize|string|null, name?: string|null}>  $foods  what each food probe is in, keyed by identifier
@@ -176,7 +177,9 @@ class Cook extends Model
 
             $name = $foods[$identifier]['name'] ?? null;
 
-            $size = $foods[$identifier]['size'] ?? null;
+            $size = array_key_exists('size', $foods[$identifier]) ?
+                $foods[$identifier]['size'] :
+                $current->get($identifier)?->pivot->size;
 
             return [$id => [
                 'meat' => self::meatValue($foods[$identifier]['meat'] ?? null),
