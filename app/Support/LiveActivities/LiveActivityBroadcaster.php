@@ -9,6 +9,7 @@ use App\Services\Apns\ApnsClient;
 use App\Services\Apns\ApnsResult;
 use App\Support\CookSnapshot;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Keeps the iPhone app's Live Activities in step with cooks: starts one when a
@@ -21,6 +22,9 @@ class LiveActivityBroadcaster
 
     /** How long an ended cook's Live Activity stays on the Lock Screen. */
     public const int DISMISS_AFTER_MINUTES = 60;
+
+    /** iOS ends a Live Activity after eight hours, so one retired this close to that ran out of time rather than being swiped away. */
+    public const int RAN_OUT_OF_TIME_AFTER_MINUTES = 7 * 60 + 30;
 
     public function __construct(private readonly ApnsClient $apns) {}
 
@@ -35,25 +39,12 @@ class LiveActivityBroadcaster
             ->where('kind', LiveActivityTokenKind::Start)
             ->whereNotIn('user_id', $alreadyShowing);
 
-        $this->send($tokens, fn () => [
-            'aps' => [
-                'timestamp' => now()->getTimestamp(),
-                'event' => 'start',
-                'attributes-type' => 'CookActivityAttributes',
-                'attributes' => LiveActivityContent::attributes($cook),
-                'content-state' => LiveActivityContent::state(new CookSnapshot($cook)),
-                'stale-date' => now()->addMinutes(self::STALE_AFTER_MINUTES)->getTimestamp(),
-                'alert' => [
-                    'title' => 'Cook started',
-                    'body' => $cook->name,
-                ],
-            ],
-        ]);
+        $this->sendStart($cook, $tokens, alert: true);
     }
 
     public function update(Cook $cook): void
     {
-        $this->send($this->tokensFor($cook), fn () => [
+        $retired = $this->send($this->tokensFor($cook), fn () => [
             'aps' => [
                 'timestamp' => now()->getTimestamp(),
                 'event' => 'update',
@@ -61,6 +52,16 @@ class LiveActivityBroadcaster
                 'stale-date' => now()->addMinutes(self::STALE_AFTER_MINUTES)->getTimestamp(),
             ],
         ]);
+
+        $ranOutOfTime = $retired
+            ->filter(fn (LiveActivityToken $token) => $token->created_at->lte(now()->subMinutes(self::RAN_OUT_OF_TIME_AFTER_MINUTES)))
+            ->pluck('user_id');
+
+        if ($ranOutOfTime->isEmpty()) {
+            return;
+        }
+
+        $this->sendStart($cook, LiveActivityToken::query()->where('kind', LiveActivityTokenKind::Start)->whereIn('user_id', $ranOutOfTime), alert: false);
     }
 
     public function end(Cook $cook): void
@@ -77,6 +78,25 @@ class LiveActivityBroadcaster
         $this->tokensFor($cook)->delete();
     }
 
+    /** @param Builder<LiveActivityToken> $tokens */
+    private function sendStart(Cook $cook, Builder $tokens, bool $alert): void
+    {
+        $this->send($tokens, fn () => [
+            'aps' => array_filter([
+                'timestamp' => now()->getTimestamp(),
+                'event' => 'start',
+                'attributes-type' => 'CookActivityAttributes',
+                'attributes' => LiveActivityContent::attributes($cook),
+                'content-state' => LiveActivityContent::state(new CookSnapshot($cook)),
+                'stale-date' => now()->addMinutes(self::STALE_AFTER_MINUTES)->getTimestamp(),
+                'alert' => $alert ? [
+                    'title' => 'Cook started',
+                    'body' => $cook->name,
+                ] : null,
+            ]),
+        ]);
+    }
+
     /** @return Builder<LiveActivityToken> */
     private function tokensFor(Cook $cook): Builder
     {
@@ -88,25 +108,25 @@ class LiveActivityBroadcaster
     /**
      * @param  Builder<LiveActivityToken>  $tokens
      * @param  callable(): array<string, mixed>  $payload
+     * @return Collection<int, LiveActivityToken> the tokens Apple has retired, which are deleted
      */
-    private function send(Builder $tokens, callable $payload): void
+    private function send(Builder $tokens, callable $payload): Collection
     {
         if (! $this->apns->isConfigured()) {
-            return;
+            return new Collection;
         }
 
         $tokens = $tokens->get();
 
         if ($tokens->isEmpty()) {
-            return;
+            return new Collection;
         }
 
         $body = $payload();
 
-        $tokens->each(function (LiveActivityToken $token) use ($body) {
-            if ($this->apns->sendLiveActivity($token->token, $token->environment, $body) === ApnsResult::TokenInvalid) {
-                $token->delete();
-            }
-        });
+        return $tokens
+            ->filter(fn (LiveActivityToken $token) => $this->apns->sendLiveActivity($token->token, $token->environment, $body) === ApnsResult::TokenInvalid)
+            ->each(fn (LiveActivityToken $token) => $token->delete())
+            ->values();
     }
 }

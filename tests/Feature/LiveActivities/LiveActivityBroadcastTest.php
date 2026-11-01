@@ -143,3 +143,31 @@ it('gives each food its own name and finish time, so several joints can be told 
         ->and($state['foods'][1]['estimatedDoneAt'])->toBeLessThan($state['foods'][0]['estimatedDoneAt'])
         ->and($state['estimatedDoneAt'])->toEqual($state['foods'][0]['estimatedDoneAt']);
 });
+
+it('starts a new Live Activity quietly when iOS ends one at its eight hour limit', function () {
+    $this->apnsResponse = Http::response(['reason' => 'Unregistered'], 410);
+    $user = User::factory()->create();
+    $cook = Cook::factory()->create(['started_at' => now()->subHours(9)]);
+    $startToken = LiveActivityToken::factory()->start()->create(['user_id' => $user->id]);
+    LiveActivityToken::factory()->create(['user_id' => $user->id, 'cook_id' => $cook->id, 'created_at' => now()->subHours(8)]);
+
+    app(LiveActivityBroadcaster::class)->update($cook);
+
+    $push = pushesTo($startToken->token)->sole();
+
+    expect($push['aps']['event'])->toBe('start')
+        ->and($push['aps']['attributes'])->toMatchArray(['cookId' => $cook->id])
+        ->and($push['aps'])->not->toHaveKey('alert');
+});
+
+it('leaves a Live Activity that was swiped away well before its limit', function () {
+    $this->apnsResponse = Http::response(['reason' => 'Unregistered'], 410);
+    $user = User::factory()->create();
+    $cook = Cook::factory()->create(['started_at' => now()->subHours(3)]);
+    $startToken = LiveActivityToken::factory()->start()->create(['user_id' => $user->id]);
+    LiveActivityToken::factory()->create(['user_id' => $user->id, 'cook_id' => $cook->id, 'created_at' => now()->subHours(2)]);
+
+    app(LiveActivityBroadcaster::class)->update($cook);
+
+    expect(pushesTo($startToken->token))->toBeEmpty();
+});
