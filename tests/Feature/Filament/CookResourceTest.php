@@ -155,6 +155,33 @@ it('changes what a food probe is in after the cook has started', function () {
         ->and($cook->fresh()->probeName(Probe::FOOD1))->toBe('Flat');
 });
 
+it('corrects when a joint was wrapped, or takes the wrap away', function () {
+    $cook = Cook::factory()->create();
+    $cook->useProbes([Probe::PIT, Probe::FOOD1, Probe::FOOD2], [Probe::FOOD1 => ['meat' => Meat::PulledPork]]);
+    $cook->wrap(Probe::FOOD2, now()->subHour()->startOfMinute());
+
+    Livewire::test(EditCook::class, ['record' => $cook->getRouteKey()])
+        ->assertSchemaStateSet(['food2.wrapped_at' => now()->subHour()->startOfMinute()->format('Y-m-d H:i')])
+        ->fillForm(['food1' => ['wrapped_at' => now()->subMinutes(30)->startOfMinute()->toDateTimeString()], 'food2' => ['wrapped_at' => null]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($cook->fresh()->probeWrappedAt(Probe::FOOD1)->equalTo(now()->subMinutes(30)->startOfMinute()))->toBeTrue()
+        ->and($cook->fresh()->probeWrappedAt(Probe::FOOD2))->toBeNull();
+});
+
+it('leaves a wrap time alone when the cook is saved without changing it', function () {
+    $cook = Cook::factory()->create();
+    $cook->useProbes([Probe::PIT, Probe::FOOD1]);
+    $cook->wrap(Probe::FOOD1, now()->subHour()->setSecond(42));
+
+    Livewire::test(EditCook::class, ['record' => $cook->getRouteKey()])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($cook->fresh()->probeWrappedAt(Probe::FOOD1)->second)->toBe(42);
+});
+
 it('names a cook after the day when nothing says what it is', function () {
     Guru::factory()->withProbes()->create();
 

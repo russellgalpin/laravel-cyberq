@@ -46,5 +46,14 @@ class EditCook extends EditRecord
         $probes = CookForm::probesFromState($this->probeState);
 
         $cook->useProbes($probes['identifiers'], $probes['foods']);
+
+        foreach ($probes['wrappedAt'] as $identifier => $wrappedAt) {
+            // The form only shows minutes, so a wrap logged from the app keeps its seconds unless it was changed.
+            if ($cook->probeWrappedAt($identifier)?->format('Y-m-d H:i') === $wrappedAt?->format('Y-m-d H:i')) {
+                continue;
+            }
+
+            $cook->wrap($identifier, $wrappedAt);
+        }
     }
 }

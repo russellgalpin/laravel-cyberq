@@ -89,7 +89,7 @@ class Cook extends Model
     {
         return $this->belongsToMany(Probe::class)
             ->using(CookProbe::class)
-            ->withPivot(['meat', 'size', 'name']);
+            ->withPivot(['meat', 'size', 'name', 'wrapped_at']);
     }
 
     /** @return Collection<int, Probe> */
@@ -123,6 +123,18 @@ class Cook extends Model
     public function probeSize(string $identifier): ?JointSize
     {
         return $this->probes->firstWhere('identifier', $identifier)?->pivot?->size;
+    }
+
+    public function probeWrappedAt(string $identifier): ?CarbonInterface
+    {
+        return $this->probes->firstWhere('identifier', $identifier)?->pivot?->wrapped_at;
+    }
+
+    /** Null for a joint that is not wrapped after all. */
+    public function wrap(string $identifier, ?CarbonInterface $at): void
+    {
+        $this->probes()->updateExistingPivot($this->probes->firstWhere('identifier', $identifier)->id, ['wrapped_at' => $at]);
+        $this->unsetRelation('probes');
     }
 
     /**
@@ -294,6 +306,15 @@ class Cook extends Model
         return $this->readings()
             ->whereRelation('probe', 'identifier', $identifier)
             ->latest('id')
+            ->first();
+    }
+
+    public function readingAt(string $identifier, CarbonInterface $at): ?Reading
+    {
+        return $this->readings()
+            ->whereRelation('probe', 'identifier', $identifier)
+            ->where('created_at', '<=', $at)
+            ->latest('created_at')
             ->first();
     }
 

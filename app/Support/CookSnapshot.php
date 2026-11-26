@@ -98,11 +98,18 @@ class CookSnapshot
      */
     private function timeToTarget(string $identifier, float $target, EloquentCollection $recent): ?CarbonInterval
     {
-        $curve = CookingHistory::load()->curveFor($this->cook->probeMeat($identifier), $this->cook->probeSize($identifier));
+        $history = CookingHistory::load();
+        $meat = $this->cook->probeMeat($identifier);
+        $size = $this->cook->probeSize($identifier);
+        $wrappedAt = $this->cook->probeWrappedAt($identifier);
+
+        $curve = $history->curveFor($meat, $size);
         $series = $curve ? $this->foodSeries($identifier) : null;
 
         if ($curve && $series && ! $series->isEmpty()) {
-            return (new FoodForecast($curve, $series))->timeToReach($target);
+            $wrappedCurve = $wrappedAt ? $history->wrappedCurveFor($meat, $size) : null;
+
+            return (new FoodForecast($curve, $series, $wrappedCurve, $wrappedAt?->getTimestamp()))->timeToReach($target);
         }
 
         return (new TemperatureForecast($recent->map(fn (Reading $reading) => [

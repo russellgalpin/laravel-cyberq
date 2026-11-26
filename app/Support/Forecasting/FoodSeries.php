@@ -84,6 +84,18 @@ readonly class FoodSeries
         return new self($start === null ? [] : array_slice($this->points, $start));
     }
 
+    /** The points before a moment, in Unix seconds. */
+    public function before(int $at): self
+    {
+        return new self(array_values(array_filter($this->points, fn (array $point) => $point['at'] < $at)));
+    }
+
+    /** The points from a moment on, in Unix seconds. */
+    public function since(int $at): self
+    {
+        return new self(array_values(array_filter($this->points, fn (array $point) => $point['at'] >= $at)));
+    }
+
     /** The average pit temperature over the last few readings. */
     public function recentPit(int $readings = 30): ?float
     {

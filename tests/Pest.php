@@ -59,7 +59,7 @@ function fakeApnsKey(): void
  *
  * @return int minutes the food took to reach $until, or $minutes if it did not
  */
-function simulateCook(Cook $cook, string $identifier, float $speed = 1.0, float $pit = 250, float $from = 40, float $until = 203, int $minutes = 2000, bool $recordPit = true): int
+function simulateCook(Cook $cook, string $identifier, float $speed = 1.0, float $pit = 250, float $from = 40, float $until = 203, int $minutes = 2000, bool $recordPit = true, float $wrapAt = INF, float $wrappedSpeed = 1.0): int
 {
     $food = $from;
     $rows = [];
@@ -77,7 +77,7 @@ function simulateCook(Cook $cook, string $identifier, float $speed = 1.0, float 
             break;
         }
 
-        $food += simulatedRisePerHour($food, $pit) * $speed / 60;
+        $food += simulatedRisePerHour($food, $pit) * $speed * ($food >= $wrapAt ? $wrappedSpeed : 1) / 60;
     }
 
     foreach (array_chunk($rows, 500) as $chunk) {

@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
 
 /**
  * A probe in use for a cook. Food probes can say what they are in: a meat,
- * how big the joint is, a name (like "Big shoulder"), or any of them.
+ * how big the joint is, a name (like "Big shoulder"), or any of them, and
+ * when the joint was wrapped.
  */
 class CookProbe extends Pivot
 {
@@ -21,6 +22,7 @@ class CookProbe extends Pivot
         return [
             'meat' => Meat::class,
             'size' => JointSize::class,
+            'wrapped_at' => 'datetime',
         ];
     }
 }

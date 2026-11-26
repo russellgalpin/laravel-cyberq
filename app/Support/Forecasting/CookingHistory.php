@@ -19,6 +19,11 @@ use Illuminate\Support\Facades\DB;
  * joints are than small ones is learned from cooks of the same meat in both
  * sizes. Each cook's curve is scaled to a medium joint before they are
  * averaged, and the result scaled to the size being cooked.
+ *
+ * Wrapping a joint speeds it up through the stall. Until wrapped cooks have
+ * finished, that is a guess counted as one cook's worth; each wrapped cook
+ * then adds how much faster it went once wrapped than its unwrapped curve.
+ * A wrapped cook only adds to the unwrapped curve up to where it was wrapped.
  */
 class CookingHistory
 {
@@ -36,7 +41,11 @@ class CookingHistory
      */
     public const float SIZE_EFFECT_HALF_TRUST_COOKS = 1 / 3;
 
-    /** @param list<array{meat: ?string, size: ?string, curve: CookingCurve}> $cooks one entry per cook, meat and size */
+    public const float ASSUMED_WRAPPED_SPEED_UP = 1.5;
+
+    public const int ASSUMED_WRAPPED_SPEED_UP_COUNTS_AS_COOKS = 1;
+
+    /** @param list<array{meat: ?string, size: ?string, curve: ?CookingCurve, wrapped: ?CookingCurve}> $cooks one entry per cook, meat and size, with its curves before and after wrapping */
     public function __construct(private readonly array $cooks) {}
 
     public static function load(): self
@@ -74,17 +83,24 @@ class CookingHistory
                 $run = collect(FoodSeries::segments(self::fahrenheitByTime($byProbe?->get($identifier)), $pit))
                     ->first(fn (FoodSeries $series) => $series->peak() >= self::USEFUL_RUN_PEAK_FAHRENHEIT);
 
-                if ($run) {
-                    $runsByFood[($cook->probeMeat($identifier)?->value ?? '').'|'.($cook->probeSize($identifier)?->value ?? '')][] = $run;
+                if (! $run) {
+                    continue;
                 }
+
+                $food = ($cook->probeMeat($identifier)?->value ?? '').'|'.($cook->probeSize($identifier)?->value ?? '');
+                $wrappedAt = $cook->probeWrappedAt($identifier)?->getTimestamp();
+
+                $runsByFood[$food]['unwrapped'][] = $wrappedAt ? $run->before($wrappedAt) : $run;
+                $runsByFood[$food]['wrapped'][] = $wrappedAt ? $run->since($wrappedAt) : null;
             }
 
             foreach ($runsByFood as $food => $runs) {
-                $curve = CookingCurve::fromSeries($runs);
+                $curve = CookingCurve::fromSeries(array_values(array_filter($runs['unwrapped'], fn (FoodSeries $run) => ! $run->isEmpty())));
+                $wrapped = CookingCurve::fromSeries(array_values(array_filter($runs['wrapped'], fn (?FoodSeries $run) => $run && ! $run->isEmpty())));
                 [$meat, $size] = explode('|', $food);
 
-                if ($curve) {
-                    $entries[] = ['meat' => $meat === '' ? null : $meat, 'size' => $size === '' ? null : $size, 'curve' => $curve];
+                if ($curve || $wrapped) {
+                    $entries[] = ['meat' => $meat === '' ? null : $meat, 'size' => $size === '' ? null : $size, 'curve' => $curve, 'wrapped' => $wrapped];
                 }
             }
         }
@@ -104,7 +120,7 @@ class CookingHistory
         $mediumCooks = array_map(fn (array $cook) => [
             ...$cook,
             'curve' => $cook['curve']->scaledBy(1 / ($factors[$cook['size'] ?? ''] ?? 1)),
-        ], $this->cooks);
+        ], $this->unwrappedCooks());
 
         $everything = CookingCurve::average(array_column($mediumCooks, 'curve'));
         $sameMeat = array_column(array_filter($mediumCooks, fn (array $cook) => $meat && $cook['meat'] === $meat->value), 'curve');
@@ -120,6 +136,28 @@ class CookingHistory
         return $curve->scaledBy($factors[$size?->value ?? ''] ?? 1);
     }
 
+    /** The curve to forecast with once the joint is wrapped. */
+    public function wrappedCurveFor(?Meat $meat, ?JointSize $size = null): ?CookingCurve
+    {
+        return $this->curveFor($meat, $size)?->scaledBy($this->wrappedSpeedUp());
+    }
+
+    /** How much faster a joint cooks once wrapped, from the assumption and wrapped cooks. */
+    public function wrappedSpeedUp(): float
+    {
+        $logs = array_fill(0, self::ASSUMED_WRAPPED_SPEED_UP_COUNTS_AS_COOKS, log(self::ASSUMED_WRAPPED_SPEED_UP));
+
+        foreach (array_filter($this->cooks, fn (array $cook) => $cook['wrapped'] !== null) as $cook) {
+            $unwrapped = $this->curveFor(Meat::tryFrom((string) $cook['meat']), JointSize::tryFrom((string) $cook['size']));
+
+            if ($unwrapped) {
+                $logs[] = $cook['wrapped']->logRatioTo($unwrapped);
+            }
+        }
+
+        return exp(array_sum($logs) / count($logs));
+    }
+
     /**
      * How much faster than a medium joint small and large ones cook, from
      * meats cooked in both sizes. Medium sits halfway between them.
@@ -131,7 +169,7 @@ class CookingHistory
         $differences = [];
         $fewestCooks = PHP_INT_MAX;
 
-        foreach (collect($this->cooks)->whereNotNull('meat')->groupBy('meat') as $cooks) {
+        foreach (collect($this->unwrappedCooks())->whereNotNull('meat')->groupBy('meat') as $cooks) {
             $small = $cooks->where('size', JointSize::Small->value)->pluck('curve')->all();
             $large = $cooks->where('size', JointSize::Large->value)->pluck('curve')->all();
 
@@ -161,25 +199,41 @@ class CookingHistory
         return count(array_filter($this->cooks, fn (array $cook) => ! $meat || $cook['meat'] === $meat->value));
     }
 
-    /** @return list<array{meat: ?string, size: ?string, bands: array<int, float>}> */
+    /** @return list<array{meat: ?string, size: ?string, bands: ?array<int, float>, wrapped: ?array<int, float>}> */
     public function toArray(): array
     {
-        return array_map(fn (array $cook) => ['meat' => $cook['meat'], 'size' => $cook['size'], 'bands' => $cook['curve']->toArray()], $this->cooks);
+        return array_map(fn (array $cook) => [
+            'meat' => $cook['meat'],
+            'size' => $cook['size'],
+            'bands' => $cook['curve']?->toArray(),
+            'wrapped' => $cook['wrapped']?->toArray(),
+        ], $this->cooks);
     }
 
-    /** @param list<array{meat: ?string, size?: ?string, bands: array<int, float>}> $cooks */
+    /** @param list<array{meat: ?string, size?: ?string, bands: ?array<int, float>, wrapped?: ?array<int, float>}> $cooks */
     public static function fromArray(array $cooks): self
     {
-        return new self(array_map(fn (array $cook) => ['meat' => $cook['meat'], 'size' => $cook['size'] ?? null, 'curve' => new CookingCurve($cook['bands'])], $cooks));
+        return new self(array_map(fn (array $cook) => [
+            'meat' => $cook['meat'],
+            'size' => $cook['size'] ?? null,
+            'curve' => $cook['bands'] === null ? null : new CookingCurve($cook['bands']),
+            'wrapped' => isset($cook['wrapped']) ? new CookingCurve($cook['wrapped']) : null,
+        ], $cooks));
     }
 
-    /** Changes whenever a cook finishes, or a finished cook's meats or sizes are changed. */
+    /** @return list<array{meat: ?string, size: ?string, curve: CookingCurve, wrapped: ?CookingCurve}> */
+    private function unwrappedCooks(): array
+    {
+        return array_values(array_filter($this->cooks, fn (array $cook) => $cook['curve'] !== null));
+    }
+
+    /** Changes whenever a cook finishes, or a finished cook's meats, sizes or wraps are changed. */
     private static function version(): string
     {
         return md5(json_encode([
             Cook::query()->whereNotNull('ended_at')->count(),
             Cook::query()->max('updated_at'),
-            CookProbe::query()->orderBy('id')->get(['id', 'meat', 'size'])->map(fn (CookProbe $probe) => [$probe->id, $probe->meat?->value, $probe->size?->value]),
+            CookProbe::query()->orderBy('id')->get(['id', 'meat', 'size', 'wrapped_at'])->map(fn (CookProbe $probe) => [$probe->id, $probe->meat?->value, $probe->size?->value, $probe->wrapped_at?->getTimestamp()]),
         ]));
     }
 

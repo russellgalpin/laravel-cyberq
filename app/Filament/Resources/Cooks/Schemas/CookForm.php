@@ -20,6 +20,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Carbon;
 
 /**
  * The cook form. Each probe has its own fields under a key ("pit", "food1"
@@ -95,6 +96,7 @@ class CookForm
                 'meat' => $inUse->get($identifier)?->pivot?->meat?->value,
                 'size' => $inUse->get($identifier)?->pivot?->size?->value,
                 'name' => $inUse->get($identifier)?->pivot?->name,
+                'wrapped_at' => $inUse->get($identifier)?->pivot?->wrapped_at?->toDateTimeString(),
             ])
             ->all();
     }
@@ -105,7 +107,8 @@ class CookForm
      *     identifiers: list<string>,
      *     foods: array<string, array{meat: ?string, size: ?string, name: ?string}>,
      *     pitTarget: ?float,
-     *     foodTargets: array<string, ?float>
+     *     foodTargets: array<string, ?float>,
+     *     wrappedAt: array<string, ?Carbon>
      * }
      */
     public static function probesFromState(array $data): array
@@ -122,6 +125,7 @@ class CookForm
             ]])->all(),
             'pitTarget' => self::fahrenheit($data['pit']['target'] ?? null),
             'foodTargets' => $foods->mapWithKeys(fn (string $identifier, string $field) => [$identifier => self::fahrenheit($data[$field]['target'] ?? null)])->all(),
+            'wrappedAt' => $foods->mapWithKeys(fn (string $identifier, string $field) => [$identifier => filled($data[$field]['wrapped_at'] ?? null) ? Carbon::parse($data[$field]['wrapped_at']) : null])->all(),
         ];
     }
 
@@ -194,6 +198,11 @@ class CookForm
                             ->maxLength(60),
                         SetTargetsAction::temperatureInput("{$field}.target", 'Done at')
                             ->visibleOn('create'),
+                        DateTimePicker::make("{$field}.wrapped_at")
+                            ->label('Wrapped at')
+                            ->seconds(false)
+                            ->helperText('Wrapped joints cook faster, so this changes the estimate.')
+                            ->visibleOn('edit'),
                     ]),
             ]);
     }

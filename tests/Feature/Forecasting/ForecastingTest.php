@@ -188,3 +188,65 @@ it('gives no forecast once the food is at its target', function () {
 
     expect((new FoodForecast($curve, $series))->timeToReach(203))->toBeNull();
 });
+
+function wrapWhenItReached(Cook $cook, float $fahrenheit, string $identifier = Probe::FOOD1): void
+{
+    $reading = $cook->readings()->whereRelation('probe', 'identifier', $identifier)->where('temperature', '>=', $fahrenheit * 10)->orderBy('created_at')->first();
+
+    $cook->wrap($identifier, $reading->created_at);
+}
+
+function wrappedCook(Guru $guru, float $wrappedSpeed, float $wrapAt = 165): Cook
+{
+    $cook = Cook::factory()->for($guru)->create(['started_at' => now()->subDays(10 + Cook::count()), 'ended_at' => now()->subDays(5)]);
+    $cook->useProbes([Probe::PIT, Probe::FOOD1], [Probe::FOOD1 => ['meat' => Meat::PulledPork]]);
+    simulateCook($cook, Probe::FOOD1, wrapAt: $wrapAt, wrappedSpeed: $wrappedSpeed);
+    wrapWhenItReached($cook, $wrapAt);
+
+    return $cook;
+}
+
+it('assumes a wrapped joint cooks half as fast again until wrapped cooks have finished', function () {
+    finishedCook($this->guru, Meat::PulledPork);
+    finishedCook($this->guru, Meat::PulledPork);
+
+    $history = CookingHistory::load();
+
+    expect($history->wrappedSpeedUp())->toEqual(CookingHistory::ASSUMED_WRAPPED_SPEED_UP)
+        ->and($history->wrappedCurveFor(Meat::PulledPork)->hoursToReach(165, 203, 250))
+        ->toEqualWithDelta($history->curveFor(Meat::PulledPork)->hoursToReach(165, 203, 250) / 1.5, 0.01);
+});
+
+it('learns how much wrapping speeds a joint up from wrapped cooks', function () {
+    finishedCook($this->guru, Meat::PulledPork);
+    finishedCook($this->guru, Meat::PulledPork);
+    wrappedCook($this->guru, wrappedSpeed: 2.0);
+    wrappedCook($this->guru, wrappedSpeed: 2.0);
+
+    $history = CookingHistory::load();
+
+    expect($history->wrappedSpeedUp())->toEqualWithDelta((1.5 * 2 * 2) ** (1 / 3), 0.15)
+        ->and($history->curveFor(Meat::PulledPork)->risePerHour(185, 250))->toEqualWithDelta(simulatedRisePerHour(185, 250), 1.5);
+});
+
+it('forecasts a wrapped joint on the wrapped curve, checking how it has kept up since', function () {
+    finishedCook($this->guru, Meat::PulledPork);
+    finishedCook($this->guru, Meat::PulledPork);
+
+    $justWrapped = Cook::factory()->for($this->guru)->create(['started_at' => now()->subDays(1)]);
+    $justWrapped->useProbes([Probe::PIT, Probe::FOOD1], [Probe::FOOD1 => ['meat' => Meat::PulledPork]]);
+    simulateCook($justWrapped, Probe::FOOD1, until: 165);
+    $unwrapped = (new CookSnapshot($justWrapped))->probe(Probe::FOOD1)->timeToTarget->totalMinutes;
+    $justWrapped->wrap(Probe::FOOD1, $justWrapped->lastReadingAt());
+
+    $wrappedButNoFaster = Cook::factory()->for($this->guru)->create(['started_at' => now()->subDays(1)]);
+    $wrappedButNoFaster->useProbes([Probe::PIT, Probe::FOOD1], [Probe::FOOD1 => ['meat' => Meat::PulledPork]]);
+    simulateCook($wrappedButNoFaster, Probe::FOOD1, until: 195);
+    wrapWhenItReached($wrappedButNoFaster, 165);
+
+    $history = CookingHistory::load();
+    $forecast = new FoodForecast($history->curveFor(Meat::PulledPork), seriesFor($wrappedButNoFaster), $history->wrappedCurveFor(Meat::PulledPork), $wrappedButNoFaster->probeWrappedAt(Probe::FOOD1)->getTimestamp());
+
+    expect((new CookSnapshot($justWrapped->fresh()))->probe(Probe::FOOD1)->timeToTarget->totalMinutes)->toEqualWithDelta($unwrapped / 1.5, $unwrapped * 0.05)
+        ->and($forecast->speed())->toEqualWithDelta(1 / 1.5, 0.1);
+});
