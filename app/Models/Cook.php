@@ -111,9 +111,22 @@ class Cook extends Model
 
     /**
      * What a probe is called in this cook: its own name, else its meat, else
-     * the probe's label ("Food 1").
+     * the probe's label ("Food 1"). Two joints called the same get their
+     * probe's label too: "Pulled pork (Food 2)".
      */
     public function probeName(string $identifier): string
+    {
+        $name = $this->ownProbeName($identifier);
+
+        $shared = $this->probes
+            ->pluck('identifier')
+            ->reject(fn (string $other) => $other === $identifier)
+            ->contains(fn (string $other) => $this->ownProbeName($other) === $name);
+
+        return $shared ? "{$name} (".Probe::LABELS[$identifier].')' : $name;
+    }
+
+    private function ownProbeName(string $identifier): string
     {
         $pivot = $this->probes->firstWhere('identifier', $identifier)?->pivot;
 

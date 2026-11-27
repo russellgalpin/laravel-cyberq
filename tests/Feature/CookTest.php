@@ -192,3 +192,16 @@ it('lists the chosen probes in order', function () {
 
     expect($cook->probesInUse()->pluck('identifier')->all())->toBe([Probe::PIT, Probe::FOOD3]);
 });
+
+it('tells two joints called the same apart by their probe', function () {
+    $cook = Cook::factory()->create();
+    $cook->useProbes([Probe::PIT, Probe::FOOD1, Probe::FOOD2, Probe::FOOD3], [
+        Probe::FOOD1 => ['meat' => 'pulled_pork'],
+        Probe::FOOD2 => ['meat' => 'pulled_pork'],
+        Probe::FOOD3 => ['meat' => 'pulled_pork', 'name' => 'Big one'],
+    ]);
+
+    expect($cook->probeName(Probe::FOOD1))->toBe('Pulled pork (Food 1)')
+        ->and($cook->probeName(Probe::FOOD2))->toBe('Pulled pork (Food 2)')
+        ->and($cook->probeName(Probe::FOOD3))->toBe('Big one');
+});

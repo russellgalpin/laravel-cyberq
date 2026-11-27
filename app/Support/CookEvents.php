@@ -287,20 +287,9 @@ class CookEvents
             ->all();
     }
 
-    /** Two joints of the same meat need telling apart: "Pulled pork (Food 2)". */
     private function name(string $identifier): string
     {
-        if ($identifier === Probe::PIT) {
-            return 'Pit';
-        }
-
-        $name = $this->cook->probeName($identifier);
-
-        $shared = $this->foods()
-            ->reject(fn (string $other) => $other === $identifier)
-            ->contains(fn (string $other) => $this->cook->probeName($other) === $name);
-
-        return $shared ? "{$name} (".Probe::LABELS[$identifier].')' : $name;
+        return $identifier === Probe::PIT ? 'Pit' : $this->cook->probeName($identifier);
     }
 
     private static function degrees(float $fahrenheit): string
