@@ -167,7 +167,7 @@ class CookEvents
                 'at' => $change['at'],
                 'title' => $identifier === Probe::PIT ?
                     'Pit target changed' :
-                    "{$this->cook->probeName($identifier)} target changed",
+                    "{$this->name($identifier)} target changed",
                 'detail' => self::degrees($change['from']).' to '.self::degrees($change['to']),
                 'probe' => $identifier,
             ])
@@ -188,7 +188,7 @@ class CookEvents
         return [
             'type' => 'wrapped',
             'at' => $wrappedAt,
-            'title' => "{$this->cook->probeName($identifier)} wrapped",
+            'title' => "{$this->name($identifier)} wrapped",
             'detail' => $temperature === null ? null : 'At '.self::degrees($temperature),
             'probe' => $identifier,
             'note' => $this->cook->probeWrapNote($identifier),
@@ -222,7 +222,7 @@ class CookEvents
                 return [
                     'type' => 'done',
                     'at' => Carbon::parse($first->created_at),
-                    'title' => "{$this->cook->probeName($identifier)} done",
+                    'title' => "{$this->name($identifier)} done",
                     'detail' => 'Reached '.self::degrees($first->set_point / 10),
                     'probe' => $identifier,
                 ];
@@ -238,7 +238,7 @@ class CookEvents
         return $this->cook->probesInUse()
             ->map(fn (Probe $probe) => [
                 'identifier' => $probe->identifier,
-                'label' => $probe->identifier === Probe::PIT ? 'Pit' : $this->cook->probeName($probe->identifier),
+                'label' => $this->name($probe->identifier),
                 'temperature' => $this->temperatureAt($probe->identifier, $at),
             ])
             ->filter(fn (array $reading) => $reading['temperature'] !== null)
@@ -285,6 +285,22 @@ class CookEvents
             ->map(fn (object $reading) => [Carbon::parse($reading->created_at)->getTimestamp(), $reading->temperature / 10])
             ->values()
             ->all();
+    }
+
+    /** Two joints of the same meat need telling apart: "Pulled pork (Food 2)". */
+    private function name(string $identifier): string
+    {
+        if ($identifier === Probe::PIT) {
+            return 'Pit';
+        }
+
+        $name = $this->cook->probeName($identifier);
+
+        $shared = $this->foods()
+            ->reject(fn (string $other) => $other === $identifier)
+            ->contains(fn (string $other) => $this->cook->probeName($other) === $name);
+
+        return $shared ? "{$name} (".Probe::LABELS[$identifier].')' : $name;
     }
 
     private static function degrees(float $fahrenheit): string

@@ -42,6 +42,14 @@ it('lists the moments that mattered, each with the temperatures at the time', fu
         ->and($response->json('data.5.title'))->toBe('Cook ended');
 });
 
+it('tells two joints of the same meat apart', function () {
+    $cook = Cook::factory()->create(['started_at' => now()->subHours(3)]);
+    $cook->useProbes([Probe::PIT, Probe::FOOD1, Probe::FOOD2], [Probe::FOOD1 => ['meat' => 'pulled_pork'], Probe::FOOD2 => ['meat' => 'pulled_pork']]);
+    $cook->wrap(Probe::FOOD2, now()->subHour());
+
+    expect($this->getJson("/api/v1/cooks/{$cook->id}/events")->json('data.1.title'))->toBe('Pulled pork (Food 2) wrapped');
+});
+
 it('does not count a probe knocked hot for a moment as done', function () {
     $cook = Cook::factory()->create(['started_at' => now()->subHours(3)]);
     $cook->useProbes([Probe::PIT, Probe::FOOD1]);
