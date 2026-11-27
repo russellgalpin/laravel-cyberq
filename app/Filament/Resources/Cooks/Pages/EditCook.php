@@ -55,5 +55,13 @@ class EditCook extends EditRecord
 
             $cook->wrap($identifier, $wrappedAt);
         }
+
+        foreach ($probes['wrapNotes'] as $identifier => $note) {
+            if ($cook->probeWrappedAt($identifier) === null) {
+                continue;
+            }
+
+            $cook->noteWrap($identifier, $note);
+        }
     }
 }

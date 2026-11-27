@@ -97,6 +97,7 @@ class CookForm
                 'size' => $inUse->get($identifier)?->pivot?->size?->value,
                 'name' => $inUse->get($identifier)?->pivot?->name,
                 'wrapped_at' => $inUse->get($identifier)?->pivot?->wrapped_at?->toDateTimeString(),
+                'wrap_note' => $inUse->get($identifier)?->pivot?->wrap_note,
             ])
             ->all();
     }
@@ -108,7 +109,8 @@ class CookForm
      *     foods: array<string, array{meat: ?string, size: ?string, name: ?string}>,
      *     pitTarget: ?float,
      *     foodTargets: array<string, ?float>,
-     *     wrappedAt: array<string, ?Carbon>
+     *     wrappedAt: array<string, ?Carbon>,
+     *     wrapNotes: array<string, ?string>
      * }
      */
     public static function probesFromState(array $data): array
@@ -126,6 +128,7 @@ class CookForm
             'pitTarget' => self::fahrenheit($data['pit']['target'] ?? null),
             'foodTargets' => $foods->mapWithKeys(fn (string $identifier, string $field) => [$identifier => self::fahrenheit($data[$field]['target'] ?? null)])->all(),
             'wrappedAt' => $foods->mapWithKeys(fn (string $identifier, string $field) => [$identifier => filled($data[$field]['wrapped_at'] ?? null) ? Carbon::parse($data[$field]['wrapped_at']) : null])->all(),
+            'wrapNotes' => $foods->mapWithKeys(fn (string $identifier, string $field) => [$identifier => $data[$field]['wrap_note'] ?? null])->all(),
         ];
     }
 
@@ -202,7 +205,13 @@ class CookForm
                             ->label('Wrapped at')
                             ->seconds(false)
                             ->helperText('Wrapped joints cook faster, so this changes the estimate.')
+                            ->live()
                             ->visibleOn('edit'),
+                        Textarea::make("{$field}.wrap_note")
+                            ->label('Wrap note')
+                            ->rows(2)
+                            ->maxLength(2000)
+                            ->visible(fn (Get $get, string $operation) => $operation === 'edit' && filled($get("{$field}.wrapped_at"))),
                     ]),
             ]);
     }

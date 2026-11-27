@@ -46,6 +46,7 @@ class CookResource extends JsonResource
                     'wrapped_at_temperature' => $probe->pivot?->wrapped_at ?
                         $this->readingAt($probe->identifier, $probe->pivot->wrapped_at)?->temperature_in_fahrenheit :
                         null,
+                    'wrap_note' => $probe->pivot?->wrap_note,
                 ])
                 ->values(),
             'duration_minutes' => $this->duration() ? (int) $this->duration()->totalMinutes : null,

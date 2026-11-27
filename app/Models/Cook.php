@@ -81,6 +81,11 @@ class Cook extends Model
         return $this->hasMany(Reading::class);
     }
 
+    public function notes(): HasMany
+    {
+        return $this->hasMany(CookNote::class)->orderBy('noted_at');
+    }
+
     /**
      * The temperature probes chosen for this cook. Cooks from before probes
      * could be chosen have none, and use every probe the CyberQ reports.
@@ -89,7 +94,7 @@ class Cook extends Model
     {
         return $this->belongsToMany(Probe::class)
             ->using(CookProbe::class)
-            ->withPivot(['meat', 'size', 'name', 'wrapped_at']);
+            ->withPivot(['meat', 'size', 'name', 'wrapped_at', 'wrap_note']);
     }
 
     /** @return Collection<int, Probe> */
@@ -130,10 +135,26 @@ class Cook extends Model
         return $this->probes->firstWhere('identifier', $identifier)?->pivot?->wrapped_at;
     }
 
-    /** Null for a joint that is not wrapped after all. */
+    public function probeWrapNote(string $identifier): ?string
+    {
+        return $this->probes->firstWhere('identifier', $identifier)?->pivot?->wrap_note;
+    }
+
+    /** Null for a joint that is not wrapped after all, which takes its note away too. */
     public function wrap(string $identifier, ?CarbonInterface $at): void
     {
-        $this->probes()->updateExistingPivot($this->probes->firstWhere('identifier', $identifier)->id, ['wrapped_at' => $at]);
+        $this->updateProbe($identifier, $at === null ? ['wrapped_at' => null, 'wrap_note' => null] : ['wrapped_at' => $at]);
+    }
+
+    public function noteWrap(string $identifier, ?string $note): void
+    {
+        $this->updateProbe($identifier, ['wrap_note' => filled($note) ? trim($note) : null]);
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function updateProbe(string $identifier, array $attributes): void
+    {
+        $this->probes()->updateExistingPivot($this->probes->firstWhere('identifier', $identifier)->id, $attributes);
         $this->unsetRelation('probes');
     }
 

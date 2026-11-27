@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\ControllerSettingsController;
 use App\Http\Controllers\Api\CookComparisonsController;
+use App\Http\Controllers\Api\CookEventsController;
+use App\Http\Controllers\Api\CookNotesController;
 use App\Http\Controllers\Api\CooksController;
 use App\Http\Controllers\Api\CookTimelinesController;
 use App\Http\Controllers\Api\CookWrapsController;
@@ -33,6 +35,8 @@ Route::middleware('auth:sanctum')->name('api.')->group(function () {
     Route::post('/cooks/{cook}/end', [EndedCooksController::class, 'store'])->name('cooks.end');
     Route::put('/cooks/{cook}/wraps/{probe}', [CookWrapsController::class, 'update'])->name('cooks.wraps.update');
     Route::delete('/cooks/{cook}/wraps/{probe}', [CookWrapsController::class, 'destroy'])->name('cooks.wraps.destroy');
+    Route::get('/cooks/{cook}/events', [CookEventsController::class, 'index'])->name('cooks.events.index');
+    Route::apiResource('cooks.notes', CookNotesController::class)->only(['store', 'update', 'destroy'])->scoped(['note' => 'id']);
     Route::get('/cooks/{cook}/timeline', [CookTimelinesController::class, 'show'])->name('cooks.timeline');
     Route::get('/cook-comparisons', [CookComparisonsController::class, 'show'])->name('cookComparisons.show');
 

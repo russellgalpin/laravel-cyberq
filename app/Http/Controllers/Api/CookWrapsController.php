@@ -22,6 +22,7 @@ class CookWrapsController extends Controller
 
         $validated = $request->validate([
             'wrapped_at' => ['nullable', 'date', 'before_or_equal:now'],
+            'note' => ['nullable', 'string', 'max:'.CookNotesController::MAXIMUM_LENGTH],
         ]);
 
         $wrappedAt = isset($validated['wrapped_at']) ? Carbon::parse($validated['wrapped_at']) : now();
@@ -31,6 +32,10 @@ class CookWrapsController extends Controller
         }
 
         $cook->wrap($probe, $wrappedAt);
+
+        if ($request->has('note')) {
+            $cook->noteWrap($probe, $validated['note']);
+        }
 
         return new CookResource($cook);
     }

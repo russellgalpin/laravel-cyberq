@@ -182,6 +182,21 @@ it('leaves a wrap time alone when the cook is saved without changing it', functi
     expect($cook->fresh()->probeWrappedAt(Probe::FOOD1)->second)->toBe(42);
 });
 
+it('edits the note on a wrap', function () {
+    $cook = Cook::factory()->create();
+    $cook->useProbes([Probe::PIT, Probe::FOOD1]);
+    $cook->wrap(Probe::FOOD1, now()->subHour()->startOfMinute());
+    $cook->noteWrap(Probe::FOOD1, 'Too early');
+
+    Livewire::test(EditCook::class, ['record' => $cook->getRouteKey()])
+        ->assertSchemaStateSet(['food1.wrap_note' => 'Too early'])
+        ->fillForm(['food1' => ['wrap_note' => 'Too early, the bark slid off']])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($cook->fresh()->probeWrapNote(Probe::FOOD1))->toBe('Too early, the bark slid off');
+});
+
 it('names a cook after the day when nothing says what it is', function () {
     Guru::factory()->withProbes()->create();
 

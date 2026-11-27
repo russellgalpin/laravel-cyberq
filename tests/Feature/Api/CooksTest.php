@@ -75,7 +75,7 @@ it('starts a cook with a different meat on each food probe, and sends each one\'
         ->assertCreated()
         ->assertJsonPath('data.name', 'Pulled pork and brisket')
         ->assertJsonPath('data.probes', [Probe::PIT, Probe::FOOD1, Probe::FOOD3])
-        ->assertJsonPath('data.foods.0', ['identifier' => Probe::FOOD1, 'label' => 'Food 1', 'meat' => 'pulled_pork', 'meat_label' => 'Pulled pork', 'size' => 'large', 'name' => null, 'display_name' => 'Pulled pork', 'wrapped_at' => null, 'wrapped_at_temperature' => null])
+        ->assertJsonPath('data.foods.0', ['identifier' => Probe::FOOD1, 'label' => 'Food 1', 'meat' => 'pulled_pork', 'meat_label' => 'Pulled pork', 'size' => 'large', 'name' => null, 'display_name' => 'Pulled pork', 'wrapped_at' => null, 'wrapped_at_temperature' => null, 'wrap_note' => null])
         ->assertJsonPath('data.foods.1.display_name', 'Point end')
         ->assertJsonMissingPath('meta.warning');
 
